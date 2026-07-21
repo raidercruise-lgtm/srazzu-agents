@@ -1,0 +1,4 @@
+node_modules
+npm-debug.log
+swarm_telemetry.db
+.git

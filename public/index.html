@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Srazzu Sync | AI Operations Center (AOC)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #080c14; color: #cbd5e1; font-family: system-ui, -apple-system, sans-serif; }
+        .aoc-panel { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .status-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 8px; border-radius: 9999px; }
+        .glow-cyan { box-shadow: 0 0 20px rgba(6, 182, 212, 0.25); }
+        
+        /* Custom Styling for Scrubbing Slider */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #22d3ee;
+            cursor: pointer;
+            box-shadow: 0 0 8px #06b6d4;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans">
+
+    <!-- Header / Control Tower Bar -->
+    <header class="aoc-panel border-b border-slate-800 sticky top-0 z-50 px-6 py-3.5 flex justify-between items-center">
+        <div class="flex items-center space-x-4">
+            <div class="w-9 h-9 rounded-xl bg-cyan-600 flex items-center justify-center font-black text-white shadow-lg glow-cyan text-lg">S</div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="text-base font-bold tracking-wider text-white">SRAZZU<span class="text-cyan-400">SYNC</span></span>
+                    <span class="bg-cyan-950 text-cyan-400 border border-cyan-800 text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold">AI OPERATIONS CENTER</span>
+                </div>
+                <p class="text-[11px] text-slate-400">Enterprise AI Workforce Control Tower</p>
+            </div>
+        </div>
+
+        <!-- Global Operating Telemetry -->
+        <div class="hidden md:flex items-center space-x-6 text-xs font-mono">
+            <div>
+                <span class="text-slate-500 uppercase block text-[9px]">Active Missions</span>
+                <span class="text-emerald-400 font-bold">14 Running</span>
+            </div>
+            <div>
+                <span class="text-slate-500 uppercase block text-[9px]">Workforce Size</span>
+                <span class="text-cyan-400 font-bold">32 Employees</span>
+            </div>
+            <div>
+                <span class="text-slate-500 uppercase block text-[9px]">Human Intercepts</span>
+                <span class="text-amber-400 font-bold" id="interceptCount">1 Pending</span>
+            </div>
+            <select id="langSelect" class="bg-slate-900 border border-slate-700 text-slate-300 rounded-lg px-2.5 py-1 text-xs focus:outline-none">
+                <option value="en">EN - English</option>
+                <option value="ar">AR - العربية</option>
+                <option value="ru">RU - Русский</option>
+            </select>
+        </div>
+    </header>
+
+    <!-- Main Operations Grid -->
+    <main class="flex-1 max-w-[1600px] w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+        <!-- LEFT COLUMN: Mission Registry & Workforce (3 Cols) -->
+        <section class="lg:col-span-3 space-y-5">
+            
+            <!-- Mission Dispatch Command Box -->
+            <div class="aoc-panel p-4 rounded-xl border border-slate-800 space-y-3">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-rocket text-cyan-400"></i> Dispatch New Mission
+                    </h3>
+                    <button onclick="toggleMic()" id="micBtn" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 text-xs transition">
+                        <i class="fa-solid fa-microphone"></i>
+                    </button>
+                </div>
+                <textarea id="missionPrompt" rows="2" class="w-full bg-slate-950 text-slate-200 text-xs rounded-lg p-3 border border-slate-800 focus:border-cyan-500 focus:outline-none resize-none font-mono" placeholder="Define mission objective... (e.g. Audit yesterday's refund requests)"></textarea>
+                <button onclick="dispatchMission()" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs py-2 rounded-lg transition shadow-md glow-cyan flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-paper-plane text-[10px]"></i> Launch Mission
+                </button>
+            </div>
+
+            <!-- Active Mission Registry -->
+            <div class="aoc-panel p-4 rounded-xl border border-slate-800 space-y-3">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Mission Registry</h3>
+                <div id="missionList" class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                    
+                    <div onclick="selectMission('MSN-8842', 'Audit yesterday\'s refunds above AED 2,000', 'Requires Approval')" class="p-3 bg-slate-900/90 rounded-lg border border-amber-500/40 hover:border-amber-400 cursor-pointer transition space-y-2">
+                        <div class="flex justify-between items-start">
+                            <span class="font-mono text-[11px] text-amber-400 font-bold">MSN-8842</span>
+                            <span class="status-badge bg-amber-950 text-amber-400 border border-amber-800">Requires Approval</span>
+                        </div>
+                        <p class="text-xs text-white font-medium line-clamp-1">Audit yesterday's refunds above AED 2,000</p>
+                        <div class="flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                            <span>Assignee: Risk & Finance</span>
+                            <span>98% Conf.</span>
+                        </div>
+                    </div>
+
+                    <div onclick="selectMission('MSN-8841', 'Customer Onboarding Verification Sync', 'Running')" class="p-3 bg-slate-900/50 rounded-lg border border-slate-800 hover:border-slate-700 cursor-pointer transition space-y-2">
+                        <div class="flex justify-between items-start">
+                            <span class="font-mono text-[11px] text-cyan-400 font-bold">MSN-8841</span>
+                            <span class="status-badge bg-emerald-950 text-emerald-400 border border-emerald-800">Running</span>
+                        </div>
+                        <p class="text-xs text-slate-300 font-medium line-clamp-1">Customer Onboarding Verification Sync</p>
+                        <div class="flex justify-between items-center text-[10px] text-slate-500 font-mono">
+                            <span>Assignee: Support Dept</span>
+                            <span>3/4 Tasks</span>
+                        </div>
+                    </div>
+
+                    <div onclick="selectMission('MSN-8839', 'Daily Inventory Allocation Optimization', 'Completed')" class="p-3 bg-slate-900/50 rounded-lg border border-slate-800 hover:border-slate-700 cursor-pointer transition space-y-2 opacity-60">
+                        <div class="flex justify-between items-start">
+                            <span class="font-mono text-[11px] text-slate-400">MSN-8839</span>
+                            <span class="status-badge bg-slate-800 text-slate-400 border border-slate-700">Completed</span>
+                        </div>
+                        <p class="text-xs text-slate-400 font-medium line-clamp-1">Daily Inventory Allocation Optimization</p>
+                        <div class="flex justify-between items-center text-[10px] text-slate-500 font-mono">
+                            <span>Assignee: Operations</span>
+                            <span>ROI +AED 12k</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Workforce Control Tower Structure -->
+            <div class="aoc-panel p-4 rounded-xl border border-slate-800 space-y-3">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">AI Workforce Active</h3>
+                <div class="space-y-2 text-xs">
+                    <div class="p-2.5 bg-slate-900/60 rounded-lg border border-slate-800 flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+                            <div>
+                                <p class="font-bold text-slate-200">Risk Analyst AI</p>
+                                <p class="text-[10px] text-slate-400 font-mono">Finance Dept • Llama-3.3 70B</p>
+                            </div>
+                        </div>
+                        <span class="font-mono text-[10px] text-slate-400">140ms</span>
+                    </div>
+                    <div class="p-2.5 bg-slate-900/60 rounded-lg border border-slate-800 flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+                            <div>
+                                <p class="font-bold text-slate-200">Database Operations AI</p>
+                                <p class="text-[10px] text-slate-400 font-mono">Core Infrastructure</p>
+                            </div>
+                        </div>
+                        <span class="font-mono text-[10px] text-slate-400">45ms</span>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- CENTER COLUMN: Mission Control & Human Intercept (6 Cols) -->
+        <section class="lg:col-span-6 space-y-5">
+            
+            <!-- Current Active Mission Header -->
+            <div class="aoc-panel p-5 rounded-xl border border-slate-800 space-y-4">
+                <div class="flex justify-between items-start border-b border-slate-800 pb-3">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span id="activeMissionId" class="font-mono text-xs font-bold text-amber-400">MSN-8842</span>
+                            <span id="activeMissionStatus" class="status-badge bg-amber-950 text-amber-400 border border-amber-800">Requires Human Approval</span>
+                        </div>
+                        <h2 id="activeMissionTitle" class="text-lg font-bold text-white mt-1">Audit yesterday's refunds above AED 2,000</h2>
+                    </div>
+                    <div class="text-right font-mono text-xs">
+                        <span class="text-slate-500 block text-[10px]">EXECUTION TIME</span>
+                        <span id="missionTime" class="text-slate-200 font-bold">1.24s</span>
+                    </div>
+                </div>
+
+                <!-- HUMAN-IN-THE-LOOP APPROVAL INTERCEPT BOX -->
+                <div id="approvalPanel" class="bg-amber-950/30 border border-amber-500/50 rounded-xl p-4 space-y-3">
+                    <div class="flex items-center gap-2 text-amber-400 font-bold text-xs">
+                        <i class="fa-solid fa-triangle-exclamation text-sm"></i>
+                        <span>HUMAN APPROVAL REQUIRED FOR EXECUTION</span>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs font-mono bg-slate-950/80 p-3 rounded-lg border border-amber-900/40">
+                        <div>
+                            <span class="text-slate-500 block text-[9px]">ACTION</span>
+                            <span class="text-white font-bold">Process Refund</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block text-[9px]">AMOUNT</span>
+                            <span class="text-emerald-400 font-bold">AED 4,500.00</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block text-[9px]">EVIDENCE</span>
+                            <span class="text-slate-300">Invoice #9941 Verified</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block text-[9px]">CONFIDENCE</span>
+                            <span class="text-cyan-400 font-bold">98%</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 pt-1">
+                        <button onclick="approveAction(true)" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2 rounded-lg transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-check"></i> Approve Refund
+                        </button>
+                        <button onclick="approveAction(false)" class="bg-slate-800 hover:bg-slate-700 text-red-400 border border-red-900/50 font-bold text-xs px-4 py-2 rounded-lg transition">
+                            <i class="fa-solid fa-xmark"></i> Reject
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Event-Driven Mission Timeline & Event Stream with Time Travel Scrubbing -->
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                            <i class="fa-solid fa-clock-rotate-left text-cyan-400"></i> Event Stream & Time Travel
+                        </h3>
+                        <span class="text-[10px] text-slate-500 font-mono">Interactive Audit Scrubbing</span>
+                    </div>
+
+                    <!-- TIME TRAVEL CONTROLLER TOOLBAR -->
+                    <div class="bg-slate-900/80 border border-slate-800 p-2.5 rounded-xl space-y-2">
+                        <div class="flex items-center justify-between text-xs font-mono">
+                            <div class="flex items-center gap-2">
+                                <button id="playPauseBtn" onclick="togglePlayback()" class="p-1.5 bg-cyan-950 hover:bg-cyan-900 text-cyan-400 border border-cyan-800/80 rounded flex items-center justify-center w-7 h-7 transition">
+                                    <i class="fa-solid fa-play text-xs"></i>
+                                </button>
+                                <button onclick="stepFrame(-1)" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 flex items-center justify-center w-7 h-7 transition" title="Step Back">
+                                    <i class="fa-solid fa-backward-step text-xs"></i>
+                                </button>
+                                <button onclick="stepFrame(1)" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 flex items-center justify-center w-7 h-7 transition" title="Step Forward">
+                                    <i class="fa-solid fa-forward-step text-xs"></i>
+                                </button>
+                            </div>
+
+                            <!-- Scrubbing Slider Controls -->
+                            <div class="flex-1 mx-4 flex items-center gap-3">
+                                <input id="timeScrubber" type="range" min="0" max="3" value="3" oninput="scrubToFrame(parseInt(this.value))" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                            </div>
+
+                            <div class="text-[10px] text-slate-400">
+                                Frame: <span id="frameCounter" class="text-cyan-400 font-bold">4/4</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="eventStream" class="bg-slate-950 rounded-xl p-4 border border-slate-800 font-mono text-xs space-y-3 min-h-[220px] max-h-[340px] overflow-y-auto">
+                        <!-- Events populated dynamically via JS to maintain interactive time state -->
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- RIGHT COLUMN: Mission Telemetry & ROI Dashboard (3 Cols) -->
+        <section class="lg:col-span-3 space-y-5">
+            
+            <!-- Real-Time Telemetry Card -->
+            <div class="aoc-panel p-4 rounded-xl border border-slate-800 space-y-4">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Mission Telemetry</h3>
+                
+                <div class="space-y-3 font-mono text-xs">
+                    <div>
+                        <div class="flex justify-between text-[11px] mb-1">
+                            <span class="text-slate-400">Token Allocation</span>
+                            <span class="text-slate-200">1,420 / 8,192</span>
+                        </div>
+                        <div class="w-full bg-slate-900 rounded-full h-1.5 border border-slate-800">
+                            <div class="bg-cyan-500 h-1.5 rounded-full" style="width: 18%"></div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between border-b border-slate-800/80 pb-2">
+                        <span class="text-slate-400">Model Engine</span>
+                        <span class="text-cyan-400 font-bold">Llama-3.3 70B</span>
+                    </div>
+
+                    <div class="flex justify-between border-b border-slate-800/80 pb-2">
+                        <span class="text-slate-400">Estimated Cost</span>
+                        <span class="text-slate-200">$0.0024 USD</span>
+                    </div>
+
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Confidence Score</span>
+                        <span class="text-emerald-400 font-bold">98.4%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Business ROI Impact Telemetry -->
+            <div class="aoc-panel p-4 rounded-xl border border-slate-800 space-y-3">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Business ROI Impact</h3>
+                <div class="space-y-3">
+                    <div class="p-3 bg-slate-950 rounded-lg border border-slate-800 flex items-center justify-between">
+                        <div>
+                            <p class="text-[10px] text-slate-500 uppercase font-mono">Time Saved</p>
+                            <p class="text-lg font-bold text-emerald-400">42 mins</p>
+                        </div>
+                        <i class="fa-solid fa-clock text-emerald-500/30 text-2xl"></i>
+                    </div>
+
+                    <div class="p-3 bg-slate-950 rounded-lg border border-slate-800 flex items-center justify-between">
+                        <div>
+                            <p class="text-[10px] text-slate-500 uppercase font-mono">Cost Avoidance</p>
+                            <p class="text-lg font-bold text-cyan-400">AED 1,250</p>
+                        </div>
+                        <i class="fa-solid fa-coins text-cyan-500/30 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- AOC Client Controller JavaScript -->
+    <script>
+        // Mission Event Time Travel State Registry
+        const missionEvents = [
+            {
+                time: "10:41:02",
+                tag: "[Mission Initiated]",
+                tagColor: "text-cyan-400",
+                borderColor: "border-cyan-500",
+                details: "Objective passed to Workforce Supervisor.",
+                replayPrompt: "Rerun initial dispatch parameters"
+            },
+            {
+                time: "10:41:03",
+                tag: "[CRM Queried]",
+                tagColor: "text-purple-400",
+                borderColor: "border-purple-500",
+                details: "Risk Analyst Employee retrieved 14 refund records from PostgreSQL.",
+                replayPrompt: "Re-query database state at 10:41:03"
+            },
+            {
+                time: "10:41:04",
+                tag: "[Policy Validated]",
+                tagColor: "text-emerald-400",
+                borderColor: "border-emerald-500",
+                details: "Evidence: Invoice #9941 matched receipt. Reason: Customer within 30-day window.",
+                replayPrompt: "Re-evaluate policy rules against record #9941"
+            },
+            {
+                time: "10:41:05",
+                tag: "[Action Intercepted]",
+                tagColor: "text-amber-400",
+                borderColor: "border-amber-500",
+                details: "Action exceeds AED 2,000 threshold. Holding for human supervisor authorization.",
+                replayPrompt: "Simulate supervisor override"
+            }
+        ];
+
+        let currentFrameIndex = missionEvents.length - 1;
+        let isPlaying = false;
+        let playbackInterval = null;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            renderEventStream();
+        });
+
+        function renderEventStream() {
+            const container = document.getElementById('eventStream');
+            const scrubber = document.getElementById('timeScrubber');
+            const counter = document.getElementById('frameCounter');
+
+            scrubber.max = missionEvents.length - 1;
+            scrubber.value = currentFrameIndex;
+            counter.innerText = `${currentFrameIndex + 1}/${missionEvents.length}`;
+
+            let html = '';
+            for (let i = 0; i <= currentFrameIndex; i++) {
+                const event = missionEvents[i];
+                html += `
+                    <div class="flex justify-between items-start border-l-2 ${event.borderColor} pl-3 py-0.5 transition-all duration-200">
+                        <div class="flex gap-3 text-slate-400">
+                            <span class="text-slate-500 text-[10px]">${event.time}</span>
+                            <div>
+                                <span class="${event.tagColor} font-bold">${event.tag}</span> ${event.details}
+                            </div>
+                        </div>
+                        <button onclick="interactiveHistoryReplay('${event.replayPrompt}')" title="Replay event prompt" class="text-[10px] text-slate-500 hover:text-cyan-400 bg-slate-900 border border-slate-800 hover:border-cyan-800 px-1.5 py-0.5 rounded transition ml-2 flex-shrink-0">
+                            <i class="fa-solid fa-reply text-[9px]"></i> Replay
+                        </button>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        function scrubToFrame(index) {
+            currentFrameIndex = Math.max(0, Math.min(index, missionEvents.length - 1));
+            renderEventStream();
+        }
+
+        function stepFrame(direction) {
+            scrubToFrame(currentFrameIndex + direction);
+        }
+
+        function togglePlayback() {
+            const btn = document.getElementById('playPauseBtn');
+            isPlaying = !isPlaying;
+
+            if (isPlaying) {
+                btn.innerHTML = `<i class="fa-solid fa-pause text-xs"></i>`;
+                if (currentFrameIndex >= missionEvents.length - 1) {
+                    currentFrameIndex = -1;
+                }
+                playbackInterval = setInterval(() => {
+                    if (currentFrameIndex < missionEvents.length - 1) {
+                        currentFrameIndex++;
+                        renderEventStream();
+                    } else {
+                        togglePlayback();
+                    }
+                }, 1000);
+            } else {
+                btn.innerHTML = `<i class="fa-solid fa-play text-xs"></i>`;
+                clearInterval(playbackInterval);
+            }
+        }
+
+        function interactiveHistoryReplay(promptText) {
+            document.getElementById('missionPrompt').value = promptText;
+            dispatchMission();
+        }
+
+        function selectMission(id, title, status) {
+            document.getElementById('activeMissionId').innerText = id;
+            document.getElementById('activeMissionTitle').innerText = title;
+            document.getElementById('activeMissionStatus').innerText = status;
+            
+            const approvalPanel = document.getElementById('approvalPanel');
+            if (status === 'Requires Approval') {
+                approvalPanel.classList.remove('hidden');
+                document.getElementById('activeMissionStatus').className = "status-badge bg-amber-950 text-amber-400 border border-amber-800";
+            } else {
+                approvalPanel.classList.add('hidden');
+                document.getElementById('activeMissionStatus').className = "status-badge bg-emerald-950 text-emerald-400 border border-emerald-800";
+            }
+        }
+
+        async function dispatchMission() {
+            const prompt = document.getElementById('missionPrompt').value;
+            const language = document.getElementById('langSelect').value;
+
+            if (!prompt.trim()) return;
+
+            // Stop ongoing timeline playback if playing
+            if (isPlaying) togglePlayback();
+
+            // Generate unique Mission ID
+            const msnId = 'MSN-' + Math.floor(1000 + Math.random() * 9000);
+            document.getElementById('activeMissionId').innerText = msnId;
+            document.getElementById('activeMissionTitle').innerText = prompt;
+            document.getElementById('activeMissionStatus').innerText = 'Running';
+            document.getElementById('activeMissionStatus').className = "status-badge bg-emerald-950 text-emerald-400 border border-emerald-800";
+            document.getElementById('approvalPanel').classList.add('hidden');
+
+            const nowTime = new Date().toLocaleTimeString();
+            missionEvents.push({
+                time: nowTime,
+                tag: "[Mission Initiated]",
+                tagColor: "text-cyan-400",
+                borderColor: "border-cyan-500",
+                details: prompt,
+                replayPrompt: prompt
+            });
+
+            currentFrameIndex = missionEvents.length - 1;
+            renderEventStream();
+
+            try {
+                const response = await fetch('/api/ingress/webhook', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ payload: prompt, language: language })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'SUCCESS') {
+                    missionEvents.push({
+                        time: new Date().toLocaleTimeString(),
+                        tag: "[Mission Completed]",
+                        tagColor: "text-emerald-400",
+                        borderColor: "border-emerald-500",
+                        details: `Node: ${data.node} — ${data.text}`,
+                        replayPrompt: `Rerun ${prompt}`
+                    });
+                } else {
+                    missionEvents.push({
+                        time: new Date().toLocaleTimeString(),
+                        tag: "[Error]",
+                        tagColor: "text-red-400",
+                        borderColor: "border-red-500",
+                        details: data.error,
+                        replayPrompt: `Retry ${prompt}`
+                    });
+                }
+            } catch (err) {
+                missionEvents.push({
+                    time: new Date().toLocaleTimeString(),
+                    tag: "[Network Error]",
+                    tagColor: "text-red-400",
+                    borderColor: "border-red-500",
+                    details: "Failed to reach AOC backend API.",
+                    replayPrompt: `Retry ${prompt}`
+                });
+            }
+
+            currentFrameIndex = missionEvents.length - 1;
+            renderEventStream();
+        }
+
+        function approveAction(isApproved) {
+            const panel = document.getElementById('approvalPanel');
+            
+            panel.classList.add('hidden');
+            document.getElementById('activeMissionStatus').innerText = isApproved ? 'Completed' : 'Rejected';
+            document.getElementById('activeMissionStatus').className = isApproved 
+                ? "status-badge bg-emerald-950 text-emerald-400 border border-emerald-800"
+                : "status-badge bg-red-950 text-red-400 border border-red-800";
+
+            document.getElementById('interceptCount').innerText = '0 Pending';
+
+            missionEvents.push({
+                time: new Date().toLocaleTimeString(),
+                tag: "[Human Decision Recorded]",
+                tagColor: isApproved ? "text-emerald-400" : "text-red-400",
+                borderColor: isApproved ? "border-emerald-500" : "border-red-500",
+                details: `Action ${isApproved ? 'APPROVED' : 'REJECTED'} by Supervisor. Execution completed.`,
+                replayPrompt: `Re-assess decision for ${isApproved ? 'Approval' : 'Rejection'}`
+            });
+
+            currentFrameIndex = missionEvents.length - 1;
+            renderEventStream();
+        }
+
+        // Web Speech API
+        let recognition;
+        function toggleMic() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) return alert('Speech recognition not supported in this browser.');
+
+            if (!recognition) {
+                recognition = new SpeechRecognition();
+                recognition.onstart = () => document.getElementById('micBtn').classList.add('bg-red-600', 'text-white');
+                recognition.onresult = (e) => {
+                    document.getElementById('missionPrompt').value = e.results[0][0].transcript;
+                    document.getElementById('micBtn').classList.remove('bg-red-600', 'text-white');
+                    dispatchMission();
+                };
+                recognition.onerror = () => document.getElementById('micBtn').classList.remove('bg-red-600', 'text-white');
+            }
+            recognition.start();
+        }
+    </script>
+</body>
+</html>

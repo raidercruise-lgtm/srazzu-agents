@@ -1,0 +1,25 @@
+services:
+  broker:
+    build: .
+    image: swarm-broker:latest
+    ports:
+      - "9999:8080"
+    volumes:
+      - swarm_data:/usr/src/app/db_storage
+    environment:
+      - NODE_ENV=production
+      - DB_PATH=/usr/src/app/db_storage/swarm_telemetry.db
+    restart: always
+
+  target_node:
+    image: swarm-broker:latest
+    depends_on:
+      - broker
+    environment:
+      - NODE_ENV=production
+      - BROKER_URL=ws://broker:8080
+    command: ["node", "target_node.js"]
+    restart: always
+
+volumes:
+  swarm_data:

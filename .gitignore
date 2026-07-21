@@ -1,0 +1,24 @@
+# Environment & Sensitive Credentials
+.env
+.env.local
+*.env
+Supabase details.txt
+Below is the complete blueprint of.txt
+
+# Dependencies
+node_modules/
+
+# Local Databases & SQLite Storage
+*.db
+*.sqlite
+*.sqlite3
+
+# Vercel & Build Artifacts
+.vercel/
+
+# OS / System Cache Files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
