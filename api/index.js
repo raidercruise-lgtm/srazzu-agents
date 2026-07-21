@@ -47,6 +47,37 @@ app.post('/api/canvas/config', (req, res) => {
     config: enterpriseCanvasConfig
   });
 });
+// PHASE 4: AUTONOMOUS GOVERNANCE & KILL-SWITCH ENDPOINTS
+let governanceState = {
+  systemStatus: "OPTIMAL",
+  emergencyStop: false,
+  activePolicies: 3
+};
+
+app.get('/api/governance/status', (req, res) => {
+  res.json({
+    success: true,
+    governance: governanceState,
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.post('/api/governance/killswitch', (req, res) => {
+  const { action } = req.body;
+  if (action === 'FREEZE') {
+    governanceState.systemStatus = "EMERGENCY_STOP";
+    governanceState.emergencyStop = true;
+  } else {
+    governanceState.systemStatus = "OPTIMAL";
+    governanceState.emergencyStop = false;
+  }
+
+  res.json({
+    success: true,
+    message: `System governance state updated to ${governanceState.systemStatus}`,
+    governance: governanceState
+  });
+});
 
 // Export the Express app for Vercel Serverless deployment
 module.exports = app;
