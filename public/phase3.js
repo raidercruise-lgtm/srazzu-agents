@@ -1,6 +1,6 @@
 /**
  * Phase 3: Digital Twin Canvas & Enterprise Theme Engine
- * Enhanced with Node Telemetry Inspection & Local Persistence
+ * Enhanced with Real-Time Backend API Sync & Telemetry Drawer
  */
 
 const DigitalTwinCanvas = {
@@ -46,26 +46,51 @@ const DigitalTwinCanvas = {
     matrix: { bg: "#001100", cardBg: "#002200", accent: "#00ff00", text: "#00dd00", border: "#005500" }
   },
 
-  init(containerId) {
+  async init(containerId) {
     this.container = document.getElementById(containerId);
     if (!this.container) return;
 
-    // Load saved settings if present
-    const savedTheme = localStorage.getItem('dt_theme');
-    const savedIndustry = localStorage.getItem('dt_industry');
-    if (savedTheme && this.themes[savedTheme]) this.activeTheme = savedTheme;
-    if (savedIndustry && this.industryLayouts[savedIndustry]) this.activeIndustry = savedIndustry;
+    // Load state from server first
+    await this.fetchServerConfig();
 
     this.renderControls();
     this.renderCanvas();
     this.applyTheme(this.activeTheme);
   },
 
+  async fetchServerConfig() {
+    try {
+      const res = await fetch('/api/canvas/config');
+      const data = await res.json();
+      if (data.success && data.config) {
+        if (data.config.activeTheme) this.activeTheme = data.config.activeTheme;
+        if (data.config.activeIndustry) this.activeIndustry = data.config.activeIndustry;
+      }
+    } catch (err) {
+      console.warn('API sync offline, using local defaults:', err);
+    }
+  },
+
+  async syncServerConfig() {
+    try {
+      await fetch('/api/canvas/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activeIndustry: this.activeIndustry,
+          activeTheme: this.activeTheme
+        })
+      });
+    } catch (err) {
+      console.warn('Failed to push config to server:', err);
+    }
+  },
+
   setTheme(themeKey) {
     if (!this.themes[themeKey]) return;
     this.activeTheme = themeKey;
-    localStorage.setItem('dt_theme', themeKey);
     this.applyTheme(themeKey);
+    this.syncServerConfig();
   },
 
   applyTheme(themeKey) {
@@ -81,8 +106,8 @@ const DigitalTwinCanvas = {
     if (!this.industryLayouts[industryKey]) return;
     this.activeIndustry = industryKey;
     this.selectedNode = null;
-    localStorage.setItem('dt_industry', industryKey);
     this.renderCanvas();
+    this.syncServerConfig();
   },
 
   inspectNode(nodeId) {
@@ -100,6 +125,7 @@ const DigitalTwinCanvas = {
 
     node.status = node.status === 'online' || node.status === 'active' ? 'offline' : 'online';
     this.renderCanvas();
+    this.syncServerConfig();
   },
 
   renderControls() {
@@ -149,7 +175,6 @@ const DigitalTwinCanvas = {
       `;
     }).join('');
 
-    // Telemetry Panel Drawer
     let drawerHtml = '';
     if (this.selectedNode) {
       const sn = this.selectedNode;
@@ -162,7 +187,7 @@ const DigitalTwinCanvas = {
       `).join('');
 
       drawerHtml = `
-        <div style="background: var(--dt-card-bg, #161b22); border-left: 2px solid var(--dt-accent, #58a6ff); padding: 16px; width: 280px; height: 100%; position: absolute; right: 0; top: 0; box-shadow: -4px 0 15px rgba(0,0,0,0.4); display: flex; flex-direction: column; justify-space-between; z-index: 10;">
+        <div style="background: var(--dt-card-bg, #161b22); border-left: 2px solid var(--dt-accent, #58a6ff); padding: 16px; width: 280px; height: 100%; position: absolute; right: 0; top: 0; box-shadow: -4px 0 15px rgba(0,0,0,0.4); display: flex; flex-direction: column; justify-content: space-between; z-index: 10;">
           <div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
               <span style="font-size: 14px; font-weight: bold; color: var(--dt-accent, #58a6ff);">${sn.icon} TELEMETRY</span>
