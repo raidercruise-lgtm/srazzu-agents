@@ -60,7 +60,7 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       gap: 20px;
-      margin-bottom: 30px;
+      margin-bottom: 24px;
     }
 
     .card {
@@ -79,13 +79,13 @@
       margin-bottom: 12px;
     }
 
-    /* Phase 3 Specific Styles */
-    .phase3-container {
+    /* Phase 3 & Approval Container Styles */
+    .phase-container {
       background: #161b22;
       border: 1px solid #30363d;
       border-radius: 8px;
       padding: 20px;
-      margin-top: 10px;
+      margin-top: 24px;
     }
 
     .section-header {
@@ -109,7 +109,7 @@
       ⚡ AOC // AI Operations Center 
       <span class="status-badge">Live System</span>
     </h1>
-    <div id="system-clock" style="font-size: 12px; color: #8b949e; font-mono: true;"></div>
+    <div id="system-clock" style="font-size: 12px; color: #8b949e; font-family: monospace;"></div>
   </header>
 
   <!-- Phases 1 & 2 Workspace Placeholder -->
@@ -131,8 +131,19 @@
     </div>
   </main>
 
+  <!-- Human Approval Workflows (Human-in-the-Loop Gatekeeper) -->
+  <section class="phase-container" style="margin-top: 0; margin-bottom: 24px;">
+    <div class="section-header">
+      <h2>🛡️ Human Approval Workflows (Human-in-the-Loop)</h2>
+      <span style="font-size: 11px; color: #8b949e;">Operational Gatekeeper</span>
+    </div>
+
+    <!-- Human Approval Mounting Target -->
+    <div id="approval-container"></div>
+  </section>
+
   <!-- Phase 3: Digital Twin Canvas & Enterprise Theme Engine -->
-  <section class="phase3-container">
+  <section class="phase-container">
     <div class="section-header">
       <h2>Phase 3: Enterprise Digital Twin Canvas</h2>
       <span style="font-size: 11px; color: #8b949e;">v3.0 Production</span>
@@ -142,7 +153,8 @@
     <div id="digital-twin-container"></div>
   </section>
 
-  <!-- Load Phase 3 Engine -->
+  <!-- Load Engine Scripts -->
+  <script src="/approval.js"></script>
   <script src="/phase3.js"></script>
 
   <script>
@@ -156,8 +168,16 @@
     setInterval(updateClock, 1000);
     updateClock();
 
-    // Initialize Phase 3 Digital Twin Canvas Engine
+    // Initialize Engines on Page Load
     document.addEventListener('DOMContentLoaded', () => {
+      // Init Human-in-the-Loop Approval Gatekeeper
+      if (window.ApprovalEngine) {
+        ApprovalEngine.init('approval-container');
+      } else {
+        console.error('Approval engine script not found or failed to load.');
+      }
+
+      // Init Phase 3 Digital Twin Canvas Engine
       if (window.DigitalTwinCanvas) {
         DigitalTwinCanvas.init('digital-twin-container');
       } else {
