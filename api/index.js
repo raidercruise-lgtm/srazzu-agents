@@ -1,38 +1,20 @@
 import express from 'express';
-import fs from 'fs';
-import path from 'path';
 import jwt from 'jsonwebtoken';
+import { createClient } from '@supabase/supabase-js';
 
 const app = express();
 app.use(express.json());
 
 const JWT_SECRET = process.env.JWT_SECRET || 'aoc-enterprise-secret-key-2026';
-const DB_PATH = path.join('/tmp', 'aoc_db.json');
 
-// Memory State with File Persistence Fallback
-let db = {
-  governanceState: { systemStatus: "OPTIMAL", emergencyStop: false },
-  telemetryLogs: [],
-  canvasConfig: { theme: 'cyberpunk', layout: 'swarms' }
-};
+// Supabase Integration (fallback to global memory if env vars not set)
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
+const supabase = (SUPABASE_URL && SUPABASE_KEY) ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
-// Load initial state from /tmp disk storage
-if (fs.existsSync(DB_PATH)) {
-  try {
-    const raw = fs.readFileSync(DB_PATH, 'utf8');
-    db = JSON.parse(raw);
-  } catch (err) {
-    console.error('Failed reading DB file, reinitializing', err);
-  }
-}
-
-function saveDb() {
-  try {
-    fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
-  } catch (err) {
-    console.error('Failed saving DB file', err);
-  }
-}
+// Persistent Global Memory Fallback across warm invocations
+global.telemetryLogs = global.telemetryLogs || [];
+global.governanceState = global.governanceState || { systemStatus: "OPTIMAL", emergencyStop: false };
 
 // Middleware: Verify JWT & Roles
 function authenticateToken(req, res, next) {
@@ -51,7 +33,7 @@ function authenticateToken(req, res, next) {
   });
 }
 
-// 1. Auth Endpoint: Generate RBAC Tokens
+// 1. Auth Endpoint
 app.post('/api/auth/login', (req, res) => {
   const { username, role } = req.body;
   const userRole = role === 'ADMIN' ? 'ADMIN' : 'OPERATOR';
@@ -60,8 +42,8 @@ app.post('/api/auth/login', (req, res) => {
   res.json({ success: true, token, role: userRole, username });
 });
 
-// 2. Real LLM Agent Webhook Ingestion API
-app.post('/api/v1/telemetry/webhook', (req, res) => {
+// 2. Telemetry Webhook Ingestion API
+app.post('/api/v1/telemetry/webhook', async (req, res) => {
   const { agentId, action, status, latency, reasoning } = req.body;
 
   const tracePayload = {
@@ -74,20 +56,44 @@ app.post('/api/v1/telemetry/webhook', (req, res) => {
     timestamp: new Date().toISOString()
   };
 
-  db.telemetryLogs.unshift(tracePayload);
-  if (db.telemetryLogs.length > 100) db.telemetryLogs.pop();
-  saveDb();
+  // Push to global memory cache
+  global.telemetryLogs.unshift(tracePayload);
+  if (global.telemetryLogs.length > 100) global.telemetryLogs.pop();
+
+  // Persist to Supabase if configured
+  if (supabase) {
+    try {
+      await supabase.from('telemetry_logs').insert([tracePayload]);
+    } catch (err) {
+      console.error('Supabase write error:', err);
+    }
+  }
 
   res.json({ success: true, message: 'Telemetry trace ingested', trace: tracePayload });
 });
 
-app.get('/api/v1/telemetry/logs', (req, res) => {
-  res.json({ success: true, logs: db.telemetryLogs });
+app.get('/api/v1/telemetry/logs', async (req, res) => {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('telemetry_logs')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .limit(20);
+      if (!error && data && data.length > 0) {
+        return res.json({ success: true, logs: data });
+      }
+    } catch (err) {
+      console.error('Supabase read error:', err);
+    }
+  }
+
+  res.json({ success: true, logs: global.telemetryLogs });
 });
 
-// 3. Governance Endpoint
+// 3. Governance Endpoints
 app.get('/api/governance/status', (req, res) => {
-  res.json({ success: true, governance: db.governanceState });
+  res.json({ success: true, governance: global.governanceState });
 });
 
 app.post('/api/governance/killswitch', authenticateToken, (req, res) => {
@@ -100,32 +106,14 @@ app.post('/api/governance/killswitch', authenticateToken, (req, res) => {
 
   const { action } = req.body;
   if (action === 'FREEZE') {
-    db.governanceState.systemStatus = "EMERGENCY_STOP";
-    db.governanceState.emergencyStop = true;
+    global.governanceState.systemStatus = "EMERGENCY_STOP";
+    global.governanceState.emergencyStop = true;
   } else {
-    db.governanceState.systemStatus = "OPTIMAL";
-    db.governanceState.emergencyStop = false;
+    global.governanceState.systemStatus = "OPTIMAL";
+    global.governanceState.emergencyStop = false;
   }
 
-  saveDb();
-  res.json({ success: true, governance: db.governanceState });
+  res.json({ success: true, governance: global.governanceState });
 });
 
-// Canvas Configuration Endpoint
-app.get('/api/canvas/config', (req, res) => {
-  res.json({ success: true, config: db.canvasConfig });
-});
-
-app.post('/api/canvas/config', (req, res) => {
-  db.canvasConfig = { ...db.canvasConfig, ...req.body };
-  saveDb();
-  res.json({ success: true, config: db.canvasConfig });
-});
-
-// Catch-all route to handle base /api index checks
-app.all('/api', (req, res) => {
-  res.json({ success: true, message: "AOC Operations Engine API Operational" });
-});
-
-// Clean ES Module export for Vercel Serverless Function engine
 export default app;
