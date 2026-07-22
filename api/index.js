@@ -1,10 +1,9 @@
-// Safe Discord Dispatcher (won't crash the serverless function)
+// Safe Discord Alert Dispatcher
 async function sendDiscordIncidentAlert(trace) {
   try {
     const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
-    
     if (!webhookUrl) {
-      console.log('⚠️ [Discord Alert] DISCORD_WEBHOOK_URL is not defined in environment variables.');
+      console.log('⚠️ [Discord Alert] DISCORD_WEBHOOK_URL is not configured.');
       return;
     }
 
@@ -13,46 +12,45 @@ async function sendDiscordIncidentAlert(trace) {
       embeds: [
         {
           title: "🚨 Agent Execution Failure Detected",
-          color: 15158332, // Red
+          color: 15158332,
           fields: [
-            { name: "Agent ID", value: String(trace.agentId || trace.agent_id || 'Unknown'), inline: true },
-            { name: "Action", value: String(trace.action || 'Unknown'), inline: true },
-            { name: "Latency", value: String(trace.latency || 'N/A'), inline: true },
-            { name: "Failure Reason", value: String(trace.reasoning || trace.error || 'Execution failure reported.') }
+            { name: "Agent ID", value: String(trace?.agentId || 'Unknown'), inline: true },
+            { name: "Action", value: String(trace?.action || 'Unknown'), inline: true },
+            { name: "Latency", value: String(trace?.latency || 'N/A'), inline: true },
+            { name: "Reasoning", value: String(trace?.reasoning || 'Execution error reported.') }
           ],
           timestamp: new Date().toISOString(),
-          footer: { text: "AI Operations Center // Autonomous Defense" }
+          footer: { text: "AI Operations Center // Autonomous Governance" }
         }
       ]
     };
 
-    // Use global fetch (built-in for Node 18+)
-    const response = await fetch(webhookUrl, {
+    const res = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
-    if (response.ok) {
-      console.log('✅ [Discord Alert] Alert posted successfully.');
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`❌ [Discord] Discord API error ${res.status}: ${errText}`);
     } else {
-      const errBody = await response.text();
-      console.error(`❌ [Discord Alert] Discord API error (${response.status}):`, errBody);
+      console.log('✅ [Discord] Incident alert posted.');
     }
   } catch (err) {
-    console.error('❌ [Discord Alert] Error dispatching alert:', err.message);
+    console.error('❌ [Discord] Non-blocking dispatch error:', err.message);
   }
 }
 
-// In your webhook handler
+// In your Express app / Webhook endpoint:
 app.post('/api/v1/telemetry/webhook', async (req, res) => {
   try {
     const trace = req.body || {};
     const status = String(trace.status || '').toUpperCase();
 
-    // Trigger alert if failed (awaited safely inside try-catch)
+    // Fire Discord alert asynchronously without blocking or crashing the response thread
     if (status === 'FAILED' || status === 'ERROR') {
-      await sendDiscordIncidentAlert(trace);
+      sendDiscordIncidentAlert(trace).catch(err => console.error(err));
     }
 
     return res.status(200).json({
@@ -61,7 +59,7 @@ app.post('/api/v1/telemetry/webhook', async (req, res) => {
       trace
     });
   } catch (error) {
-    console.error('Webhook route error:', error);
+    console.error('❌ [Webhook Handler Error]:', error);
     return res.status(500).json({ success: false, error: error.message });
   }
 });
