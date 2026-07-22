@@ -100,6 +100,43 @@
       font-weight: 600;
       color: #58a6ff;
     }
+
+    /* Swarm Simulator Controls */
+    .swarm-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 14px 20px;
+      margin-bottom: 24px;
+    }
+
+    .swarm-btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .swarm-btn:hover {
+      opacity: 0.85;
+    }
+
+    .btn-start {
+      background: #238636;
+      color: #ffffff;
+      margin-right: 8px;
+    }
+
+    .btn-stop {
+      background: #da3633;
+      color: #ffffff;
+    }
   </style>
 </head>
 <body>
@@ -130,6 +167,18 @@
       </div>
     </div>
   </main>
+
+  <!-- Autonomous Swarm Simulator Control Box -->
+  <div class="swarm-controls">
+    <div>
+      <div style="font-size: 13px; font-weight: 600; color: #58a6ff;">🤖 Autonomous Swarm Traffic Generator</div>
+      <div style="font-size: 12px; color: #8b949e; margin-top: 2px;">Simulates live multi-agent execution events every 4s</div>
+    </div>
+    <div>
+      <button class="swarm-btn btn-start" onclick="window.startSwarmSimulation()">Start Swarm</button>
+      <button class="swarm-btn btn-stop" onclick="window.stopSwarmSimulation()">Stop</button>
+    </div>
+  </div>
 
   <!-- Phase 4: Autonomous Governance, Self-Healing & Kill-Switch -->
   <section class="phase-container">
@@ -165,6 +214,7 @@
   </section>
 
   <!-- Load Engine Scripts -->
+  <script src="/simulator.js"></script>
   <script src="/governance.js"></script>
   <script src="/approval.js"></script>
   <script src="/phase3.js"></script>
