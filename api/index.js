@@ -1,4 +1,11 @@
-// Safe Discord Alert Dispatcher
+import express from 'express';
+
+const app = express();
+
+// Middleware to parse incoming JSON payloads
+app.use(express.json());
+
+// Safe Discord Incident Alert Dispatcher
 async function sendDiscordIncidentAlert(trace) {
   try {
     const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
@@ -42,13 +49,13 @@ async function sendDiscordIncidentAlert(trace) {
   }
 }
 
-// In your Express app / Webhook endpoint:
+// Telemetry Webhook Endpoint
 app.post('/api/v1/telemetry/webhook', async (req, res) => {
   try {
     const trace = req.body || {};
     const status = String(trace.status || '').toUpperCase();
 
-    // Fire Discord alert asynchronously without blocking or crashing the response thread
+    // Fire Discord alert asynchronously for failures
     if (status === 'FAILED' || status === 'ERROR') {
       sendDiscordIncidentAlert(trace).catch(err => console.error(err));
     }
@@ -63,3 +70,5 @@ app.post('/api/v1/telemetry/webhook', async (req, res) => {
     return res.status(500).json({ success: false, error: error.message });
   }
 });
+
+export default app;
