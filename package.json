@@ -1,11 +1,10 @@
 {
   "name": "srazzu-sync",
-  "version": "1.0.0",
+  "version": "4.0.0",
   "type": "module",
-  "main": "server.js",
-  "framework": null,
+  "main": "api/index.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node api/index.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
@@ -13,11 +12,10 @@
     "dotenv": "^17.4.2",
     "express": "^4.22.2",
     "groq-sdk": "^1.3.0",
+    "jsonwebtoken": "^9.0.3",
     "openai": "^6.48.0",
     "pg": "^8.22.0"
   },
-  "description": "",
-  "keywords": [],
-  "author": "",
+  "description": "AI Operations Center (AOC) - Enterprise Telemetry, Governance, and Digital Twin Canvas",
   "license": "ISC"
 }
