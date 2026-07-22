@@ -1,128 +1,158 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AI Operations Center (AOC)</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Autonomous AI Operations Center (AOC)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
-    h1 { margin-top: 0; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
-    .card { background: #1e293b; padding: 16px; border-radius: 8px; border: 1px solid #334155; }
-    .card p { color: #94a3b8; margin: 0 0 8px 0; font-size: 14px; }
-    .card h2 { margin: 0; font-size: 28px; }
-    table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 8px; overflow: hidden; border: 1px solid #334155; }
-    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
-    th { background: #0f172a; color: #94a3b8; font-size: 14px; }
-    .status-SUCCESS { color: #4ade80; font-weight: bold; }
-    .status-FAILED, .status-ERROR { color: #f87171; font-weight: bold; }
+    body { background-color: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.08); }
   </style>
 </head>
-<body>
+<body class="p-6">
+  <div class="max-w-7xl mx-auto space-y-6">
+    
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+      <div class="flex items-center space-x-3">
+        <div class="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"></div>
+        <h1 class="text-xl font-bold tracking-wide">AI OPERATIONS CENTER (AOC)</h1>
+      </div>
+      <div class="text-xs text-slate-400 font-mono" id="last-updated">Last Updated: Syncing...</div>
+    </div>
 
-  <h1>AI Operations Center (AOC)</h1>
+    <!-- 4 Metric Blocks -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="glass-card p-5 rounded-xl">
+        <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Total Events</div>
+        <div class="text-3xl font-extrabold text-white" id="stat-total">0</div>
+      </div>
+      <div class="glass-card p-5 rounded-xl">
+        <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Successful Runs</div>
+        <div class="text-3xl font-extrabold text-emerald-400" id="stat-success">0</div>
+      </div>
+      <div class="glass-card p-5 rounded-xl">
+        <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Active Failures</div>
+        <div class="text-3xl font-extrabold text-rose-500" id="stat-failed">0</div>
+      </div>
+      <div class="glass-card p-5 rounded-xl">
+        <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Avg Latency</div>
+        <div class="text-3xl font-extrabold text-cyan-400" id="stat-latency">0ms</div>
+      </div>
+    </div>
 
-  <!-- Metrics Overview -->
-  <div class="grid">
-    <div class="card">
-      <p>Total Events</p>
-      <h2 id="total-events">0</h2>
+    <!-- Live Telemetry Feed Section -->
+    <div class="glass-card rounded-xl p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-semibold tracking-wide uppercase text-slate-300">Live Telemetry Feed</h2>
+        <span class="text-xs text-slate-500 font-mono">Auto-refreshing (5s)</span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="text-xs uppercase bg-slate-800/60 text-slate-400 border-b border-slate-700">
+            <tr>
+              <th class="p-3">Timestamp</th>
+              <th class="p-3">Agent ID</th>
+              <th class="p-3">Action</th>
+              <th class="p-3">Status</th>
+              <th class="p-3">Latency</th>
+              <th class="p-3">Reasoning / Output</th>
+            </tr>
+          </thead>
+          <tbody id="telemetry-table-body" class="divide-y divide-slate-800 font-mono text-xs">
+            <tr>
+              <td colspan="6" class="p-6 text-center text-slate-500 italic font-sans">
+                Waiting for incoming agent telemetry traces...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
-    <div class="card">
-      <p>Successful Runs</p>
-      <h2 id="success-events" style="color: #4ade80;">0</h2>
-    </div>
-    <div class="card">
-      <p>Active Failures</p>
-      <h2 id="failed-events" style="color: #f87171;">0</h2>
-    </div>
-    <div class="card">
-      <p>Avg Latency</p>
-      <h2 id="avg-latency" style="color: #38bdf8;">0 ms</h2>
-    </div>
+
   </div>
 
-  <h2>Live Telemetry Feed</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>Time</th>
-        <th>Agent ID</th>
-        <th>Action</th>
-        <th>Status</th>
-        <th>Latency</th>
-      </tr>
-    </thead>
-    <tbody id="telemetry-table-body">
-      <tr>
-        <td colspan="5" style="text-align: center; color: #94a3b8;">Loading live logs...</td>
-      </tr>
-    </tbody>
-  </table>
-
   <script>
-    async function fetchTelemetryHistory() {
+    async function fetchTelemetry() {
       try {
-        const response = await fetch('/api/v1/telemetry/history');
-        const data = await response.json();
-
-        if (data.success && Array.isArray(data.logs)) {
-          const logs = data.logs;
-
-          // Calculate Metrics
-          const total = logs.length;
-          const failures = logs.filter(l => {
-            const status = String(l.status || '').toUpperCase();
-            return status === 'FAILED' || status === 'ERROR';
-          }).length;
-          const successes = total - failures;
-
-          let totalLatency = 0;
-          logs.forEach(l => {
-            const num = parseInt(l.latency) || 0;
-            totalLatency += num;
-          });
-          const avgLatency = total > 0 ? Math.round(totalLatency / total) : 0;
-
-          // Update Metric Cards
-          document.getElementById('total-events').innerText = total;
-          document.getElementById('success-events').innerText = successes;
-          document.getElementById('failed-events').innerText = failures;
-          document.getElementById('avg-latency').innerText = avgLatency + ' ms';
-
-          // Update Table Rows
-          const tbody = document.getElementById('telemetry-table-body');
-          if (logs.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #94a3b8;">No telemetry records found.</td></tr>';
-            return;
-          }
-
-          tbody.innerHTML = logs.map(log => {
-            const time = log.created_at || log.timestamp || new Date().toISOString();
-            const agentId = log.agent_id || log.agentId || 'Unknown Agent';
-            const action = log.action || 'N/A';
-            const status = String(log.status || 'UNKNOWN').toUpperCase();
-            const latency = log.latency || 'N/A';
-
-            return `
-              <tr>
-                <td style="color: #94a3b8;">${new Date(time).toLocaleTimeString()}</td>
-                <td style="font-weight: 600;">${agentId}</td>
-                <td>${action}</td>
-                <td><span class="status-${status}">${status}</span></td>
-                <td>${latency}</td>
-              </tr>
-            `;
-          }).join('');
+        // Cache-busting parameter t=Date.now() + no-store header to avoid 304 Not Modified
+        const res = await fetch(`/api/v1/telemetry/history?t=${Date.now()}`, { 
+          cache: 'no-store' 
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          updateDashboard(data.logs || []);
         }
       } catch (err) {
-        console.error('Error fetching telemetry:', err);
+        console.error("Failed to fetch telemetry history:", err);
       }
     }
 
-    // Initial Fetch + Poll every 5 seconds
-    fetchTelemetryHistory();
-    setInterval(fetchTelemetryHistory, 5000);
+    function updateDashboard(logs) {
+      document.getElementById('last-updated').innerText = `Last Updated: ${new Date().toLocaleTimeString()}`;
+
+      if (!logs || logs.length === 0) return;
+
+      // 1. Calculate Metrics
+      const total = logs.length;
+      const successCount = logs.filter(l => l.status === 'SUCCESS').length;
+      const failureCount = logs.filter(l => l.status === 'FAILED' || l.status === 'ERROR').length;
+
+      let totalLatencyMs = 0;
+      let validLatencyCount = 0;
+
+      logs.forEach(l => {
+        if (l.latency) {
+          const num = parseInt(l.latency.replace(/[^0-9]/g, ''));
+          if (!isNaN(num)) {
+            totalLatencyMs += num;
+            validLatencyCount++;
+          }
+        }
+      });
+
+      const avgLatency = validLatencyCount > 0 ? Math.round(totalLatencyMs / validLatencyCount) : 0;
+
+      // 2. Update UI Blocks
+      document.getElementById('stat-total').innerText = total;
+      document.getElementById('stat-success').innerText = successCount;
+      document.getElementById('stat-failed').innerText = failureCount;
+      document.getElementById('stat-latency').innerText = `${avgLatency}ms`;
+
+      // 3. Render Table Rows
+      const tbody = document.getElementById('telemetry-table-body');
+      tbody.innerHTML = logs.map(log => {
+        const isSuccess = log.status === 'SUCCESS';
+        const badgeStyle = isSuccess 
+          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+          : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+        
+        const timestamp = log.created_at ? new Date(log.created_at).toLocaleTimeString() : 'N/A';
+
+        return `
+          <tr class="hover:bg-slate-800/40 transition-colors">
+            <td class="p-3 text-slate-400">${timestamp}</td>
+            <td class="p-3 font-semibold text-white">${log.agent_id || 'N/A'}</td>
+            <td class="p-3 text-slate-300 font-sans">${log.action || 'N/A'}</td>
+            <td class="p-3">
+              <span class="px-2 py-0.5 text-[10px] font-bold rounded border ${badgeStyle}">
+                ${log.status}
+              </span>
+            </td>
+            <td class="p-3 text-slate-400">${log.latency || '0ms'}</td>
+            <td class="p-3 text-slate-400 font-sans max-w-xs truncate">${log.reasoning || '-'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Initial Fetch & Start 5-second Poll
+    fetchTelemetry();
+    setInterval(fetchTelemetry, 5000);
   </script>
 </body>
 </html>
