@@ -1,7 +1,7 @@
-const express = require('express');
-const fs = require('fs');
-const path = require('path');
-const jwt = require('jsonwebtoken');
+import express from 'express';
+import fs from 'fs';
+import path from 'path';
+import jwt from 'jsonwebtoken';
 
 const app = express();
 app.use(express.json());
@@ -40,7 +40,6 @@ function authenticateToken(req, res, next) {
   const token = authHeader && authHeader.split(' ')[1];
   
   if (!token) {
-    // Default guest session for open dashboard view
     req.user = { role: 'OPERATOR', username: 'Operator' };
     return next();
   }
@@ -54,14 +53,14 @@ function authenticateToken(req, res, next) {
 
 // 1. Auth Endpoint: Generate RBAC Tokens
 app.post('/api/auth/login', (req, res) => {
-  const { username, role } = req.body; // 'ADMIN' or 'OPERATOR'
+  const { username, role } = req.body;
   const userRole = role === 'ADMIN' ? 'ADMIN' : 'OPERATOR';
   const token = jwt.sign({ username: username || 'Operator', role: userRole }, JWT_SECRET, { expiresIn: '8h' });
   
   res.json({ success: true, token, role: userRole, username });
 });
 
-// 2. Real LLM Agent Webhook Ingestion API (LangChain / CrewAI / AutoGen)
+// 2. Real LLM Agent Webhook Ingestion API
 app.post('/api/v1/telemetry/webhook', (req, res) => {
   const { agentId, action, status, latency, reasoning } = req.body;
 
@@ -76,7 +75,7 @@ app.post('/api/v1/telemetry/webhook', (req, res) => {
   };
 
   db.telemetryLogs.unshift(tracePayload);
-  if (db.telemetryLogs.length > 100) db.telemetryLogs.pop(); // Keep last 100 traces
+  if (db.telemetryLogs.length > 100) db.telemetryLogs.pop();
   saveDb();
 
   res.json({ success: true, message: 'Telemetry trace ingested', trace: tracePayload });
@@ -86,13 +85,12 @@ app.get('/api/v1/telemetry/logs', (req, res) => {
   res.json({ success: true, logs: db.telemetryLogs });
 });
 
-// 3. Governance Endpoint with Admin Role Check
+// 3. Governance Endpoint
 app.get('/api/governance/status', (req, res) => {
   res.json({ success: true, governance: db.governanceState });
 });
 
 app.post('/api/governance/killswitch', authenticateToken, (req, res) => {
-  // Enforce ADMIN role for Kill-Switch actions
   if (req.user.role !== 'ADMIN') {
     return res.status(403).json({ 
       success: false, 
@@ -124,4 +122,10 @@ app.post('/api/canvas/config', (req, res) => {
   res.json({ success: true, config: db.canvasConfig });
 });
 
-module.exports = app;
+// Catch-all route to handle base /api index checks
+app.all('/api', (req, res) => {
+  res.json({ success: true, message: "AOC Operations Engine API Operational" });
+});
+
+// Clean ES Module export for Vercel Serverless Function engine
+export default app;
