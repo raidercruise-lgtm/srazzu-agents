@@ -1,4 +1,4 @@
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase Client safely
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -12,7 +12,7 @@ const supabase = (supabaseUrl && supabaseKey)
 const failureTracker = global.failureTracker || new Map();
 global.failureTracker = failureTracker;
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -50,7 +50,6 @@ module.exports = async (req, res) => {
   // ROUTE 2: POST /api/v1/telemetry/webhook
   if (req.method === 'POST' && pathname.includes('/telemetry/webhook')) {
     try {
-      // Handle potential stringified body
       let body = req.body;
       if (typeof body === 'string') {
         try { body = JSON.parse(body); } catch (e) {}
@@ -78,7 +77,6 @@ module.exports = async (req, res) => {
         created_at: new Date().toISOString()
       };
 
-      // Optional: Add reasoning if provided
       if (reasoning) {
         logEntry.reasoning = reasoning;
       }
@@ -128,6 +126,6 @@ module.exports = async (req, res) => {
     }
   }
 
-  // Catch-all for undefined routes
-  return res.status(444).json({ success: false, error: "Route not found" });
-};
+  // Fallback route handler
+  return res.status(404).json({ success: false, error: "Route not found" });
+}
