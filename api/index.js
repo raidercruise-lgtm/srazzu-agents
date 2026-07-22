@@ -1,119 +1,70 @@
-import express from 'express';
-import jwt from 'jsonwebtoken';
-import { createClient } from '@supabase/supabase-js';
-
-const app = express();
-app.use(express.json());
-
-const JWT_SECRET = process.env.JWT_SECRET || 'aoc-enterprise-secret-key-2026';
-
-// Supabase Integration (fallback to global memory if env vars not set)
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
-const supabase = (SUPABASE_URL && SUPABASE_KEY) ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
-
-// Persistent Global Memory Fallback across warm invocations
-global.telemetryLogs = global.telemetryLogs || [];
-global.governanceState = global.governanceState || { systemStatus: "OPTIMAL", emergencyStop: false };
-
-// Middleware: Verify JWT & Roles
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  
-  if (!token) {
-    req.user = { role: 'OPERATOR', username: 'Operator' };
-    return next();
+// Helper function to dispatch Discord Alerts
+async function sendDiscordIncidentAlert(trace) {
+  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+  if (!webhookUrl) {
+    console.warn('[Discord Alert] DISCORD_WEBHOOK_URL not configured. Skipping alert.');
+    return;
   }
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Invalid or expired operational token' });
-    req.user = user;
-    next();
-  });
-}
-
-// 1. Auth Endpoint
-app.post('/api/auth/login', (req, res) => {
-  const { username, role } = req.body;
-  const userRole = role === 'ADMIN' ? 'ADMIN' : 'OPERATOR';
-  const token = jwt.sign({ username: username || 'Operator', role: userRole }, JWT_SECRET, { expiresIn: '8h' });
-  
-  res.json({ success: true, token, role: userRole, username });
-});
-
-// 2. Telemetry Webhook Ingestion API
-app.post('/api/v1/telemetry/webhook', async (req, res) => {
-  const { agentId, action, status, latency, reasoning } = req.body;
-
-  const tracePayload = {
-    id: `TR-${Date.now()}`,
-    agentId: agentId || 'External-LLM-Agent',
-    action: action || 'LLM Tool Execution',
-    status: status || 'COMPLETED',
-    latency: latency || '85ms',
-    reasoning: reasoning || 'Executed tool execution pipeline.',
-    timestamp: new Date().toISOString()
+  // Discord Rich Embed Payload
+  const embedPayload = {
+    username: "AOC Incident Sentinel",
+    avatar_url: "https://i.imgur.com/4M34hi2.png",
+    embeds: [
+      {
+        title: "🚨 Agent Execution Failure Detected",
+        color: 15158332, // Red hex code
+        fields: [
+          { name: "Agent ID", value: `\`${trace.agentId || 'Unknown Agent'}\``, inline: true },
+          { name: "Action", value: `\`${trace.action || 'Unknown Action'}\``, inline: true },
+          { name: "Latency", value: `\`${trace.latency || 'N/A'}\``, inline: true },
+          { name: "Failure Reason", value: trace.reasoning || "No error details provided." }
+        ],
+        timestamp: new Date().toISOString(),
+        footer: {
+          text: "AI Operations Center // Autonomous Governance"
+        }
+      }
+    ]
   };
 
-  // Push to global memory cache
-  global.telemetryLogs.unshift(tracePayload);
-  if (global.telemetryLogs.length > 100) global.telemetryLogs.pop();
-
-  // Persist to Supabase if configured
-  if (supabase) {
-    try {
-      await supabase.from('telemetry_logs').insert([tracePayload]);
-    } catch (err) {
-      console.error('Supabase write error:', err);
-    }
-  }
-
-  res.json({ success: true, message: 'Telemetry trace ingested', trace: tracePayload });
-});
-
-app.get('/api/v1/telemetry/logs', async (req, res) => {
-  if (supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('telemetry_logs')
-        .select('*')
-        .order('timestamp', { ascending: false })
-        .limit(20);
-      if (!error && data && data.length > 0) {
-        return res.json({ success: true, logs: data });
-      }
-    } catch (err) {
-      console.error('Supabase read error:', err);
-    }
-  }
-
-  res.json({ success: true, logs: global.telemetryLogs });
-});
-
-// 3. Governance Endpoints
-app.get('/api/governance/status', (req, res) => {
-  res.json({ success: true, governance: global.governanceState });
-});
-
-app.post('/api/governance/killswitch', authenticateToken, (req, res) => {
-  if (req.user.role !== 'ADMIN') {
-    return res.status(403).json({ 
-      success: false, 
-      error: 'ACCESS DENIED: Emergency Kill-Switch requires ADMIN privilege level.' 
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(embedPayload)
     });
+    if (!res.ok) {
+      console.error('[Discord Alert] Failed to post alert to Discord:', res.statusText);
+    } else {
+      console.log('⚡ [Discord Alert] Incident notification dispatched successfully!');
+    }
+  } catch (err) {
+    console.error('[Discord Alert] Network error while sending alert:', err);
   }
+}
 
-  const { action } = req.body;
-  if (action === 'FREEZE') {
-    global.governanceState.systemStatus = "EMERGENCY_STOP";
-    global.governanceState.emergencyStop = true;
-  } else {
-    global.governanceState.systemStatus = "OPTIMAL";
-    global.governanceState.emergencyStop = false;
+// In your /api/v1/telemetry/webhook POST handler:
+app.post('/api/v1/telemetry/webhook', async (req, res) => {
+  try {
+    const trace = req.body;
+
+    // 1. Existing Supabase insertion logic here...
+    // await supabase.from('telemetry').insert([trace]);
+
+    // 2. Trigger Discord Incident Alert on FAILED status
+    if (trace && trace.status === 'FAILED') {
+      // Non-blocking trigger so response latency isn't delayed
+      sendDiscordIncidentAlert(trace);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Telemetry trace ingested',
+      trace
+    });
+  } catch (error) {
+    console.error('Webhook ingestion error:', error);
+    return res.status(500).json({ success: false, error: error.message });
   }
-
-  res.json({ success: true, governance: global.governanceState });
 });
-
-export default app;
