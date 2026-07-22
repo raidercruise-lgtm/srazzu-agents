@@ -71,7 +71,10 @@
 
           // Calculate Metrics
           const total = logs.length;
-          const failures = logs.filter(l => l.status === 'FAILED' || l.status === 'ERROR').length;
+          const failures = logs.filter(l => {
+            const status = String(l.status || '').toUpperCase();
+            return status === 'FAILED' || status === 'ERROR';
+          }).length;
           const successes = total - failures;
 
           let totalLatency = 0;
@@ -94,15 +97,23 @@
             return;
           }
 
-          tbody.innerHTML = logs.map(log => `
-            <tr>
-              <td style="color: #94a3b8;">${new Date(log.created_at).toLocaleTimeString()}</td>
-              <td style="font-weight: 600;">${log.agent_id}</td>
-              <td>${log.action}</td>
-              <td><span class="status-${log.status}">${log.status}</span></td>
-              <td>${log.latency}</td>
-            </tr>
-          `).join('');
+          tbody.innerHTML = logs.map(log => {
+            const time = log.created_at || log.timestamp || new Date().toISOString();
+            const agentId = log.agent_id || log.agentId || 'Unknown Agent';
+            const action = log.action || 'N/A';
+            const status = String(log.status || 'UNKNOWN').toUpperCase();
+            const latency = log.latency || 'N/A';
+
+            return `
+              <tr>
+                <td style="color: #94a3b8;">${new Date(time).toLocaleTimeString()}</td>
+                <td style="font-weight: 600;">${agentId}</td>
+                <td>${action}</td>
+                <td><span class="status-${status}">${status}</span></td>
+                <td>${latency}</td>
+              </tr>
+            `;
+          }).join('');
         }
       } catch (err) {
         console.error('Error fetching telemetry:', err);
