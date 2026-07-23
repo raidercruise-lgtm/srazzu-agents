@@ -1,131 +1,113 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase Client safely
-const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-const supabase = (supabaseUrl && supabaseKey) 
-  ? createClient(supabaseUrl, supabaseKey) 
-  : null;
-
-// Global in-memory failure tracker for Discord alerts
-const failureTracker = global.failureTracker || new Map();
-global.failureTracker = failureTracker;
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+);
 
 export default async function handler(req, res) {
-  // Set CORS headers
+  // CORS & Method Check
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { pathname } = new URL(req.url, `http://${req.headers.host}`);
+  try {
+    const { agentId, action, status, latency, reasoning } = req.body;
 
-  // ROUTE 1: GET /api/v1/telemetry/history
-  if (req.method === 'GET' && pathname.includes('/telemetry/history')) {
-    try {
-      if (!supabase) {
-        return res.status(500).json({ success: false, error: "Database connection unconfigured." });
-      }
-
-      const { data, error } = await supabase
-        .from('telemetry_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) {
-        return res.status(500).json({ success: false, error: error.message });
-      }
-
-      return res.status(200).json({ success: true, logs: data || [] });
-    } catch (err) {
-      return res.status(500).json({ success: false, error: err.message });
-    }
-  }
-
-  // ROUTE 2: POST /api/v1/telemetry/webhook
-  if (req.method === 'POST' && pathname.includes('/telemetry/webhook')) {
-    try {
-      let body = req.body;
-      if (typeof body === 'string') {
-        try { body = JSON.parse(body); } catch (e) {}
-      }
-      body = body || {};
-
-      const agentId = body.agentId || body.agent_id;
-      const action = body.action || 'N/A';
-      const status = String(body.status || '').toUpperCase();
-      const latency = body.latency || '0ms';
-      const reasoning = body.reasoning || null;
-
-      if (!agentId || !status) {
-        return res.status(400).json({ 
-          success: false, 
-          error: "Missing required fields: agentId and status are required." 
-        });
-      }
-
-      const logEntry = {
+    // 1. Persist Telemetry Log to Supabase
+    const { data: log, error } = await supabase
+      .from('telemetry_logs')
+      .insert([{
         agent_id: agentId,
         action: action,
-        status: status,
+        status: status.toUpperCase(),
         latency: latency,
+        reasoning: reasoning,
         created_at: new Date().toISOString()
-      };
+      }])
+      .select();
 
-      if (reasoning) {
-        logEntry.reasoning = reasoning;
-      }
+    if (error) throw error;
 
-      // 1. Supabase Persistence
-      if (supabase) {
-        const { error: dbError } = await supabase
-          .from('telemetry_logs')
-          .insert([logEntry]);
+    let healingInstruction = { action: 'NONE', details: 'Action succeeded' };
 
-        if (dbError) {
-          console.error("Supabase insert error:", dbError.message);
+    // 2. SELF-HEALING ENGINE (Triggered on FAILED status)
+    if (status.toUpperCase() === 'FAILED') {
+      
+      // Query past 5 recent logs for this specific agent to count consecutive failures
+      const { data: history } = await supabase
+        .from('telemetry_logs')
+        .select('status')
+        .eq('agent_id', agentId)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      let consecutiveFailures = 0;
+      if (history) {
+        for (const entry of history) {
+          if (entry.status === 'FAILED') consecutiveFailures++;
+          else break;
         }
       }
 
-      // 2. Alert Logic (Discord)
-      if (status === 'FAILED' || status === 'ERROR') {
-        const currentFailures = (failureTracker.get(agentId) || 0) + 1;
-        failureTracker.set(agentId, currentFailures);
+      // Execute Policy Rules based on failure count
+      if (consecutiveFailures === 1) {
+        healingInstruction = {
+          action: 'RETRY_WITH_BACKOFF',
+          delay_ms: 1000,
+          recommendation: 'Transient failure detected. Retry action with 1s exponential backoff.'
+        };
+      } else if (consecutiveFailures === 2) {
+        healingInstruction = {
+          action: 'SWAP_MODEL_FALLBACK',
+          fallback_model: 'claude-3-5-sonnet',
+          recommendation: 'Primary model failing. Route request to secondary provider.'
+        };
+      } else if (consecutiveFailures >= 3) {
+        healingInstruction = {
+          action: 'CIRCUIT_BREAKER_TRIPPED',
+          restart_container: true,
+          escalate_human: true,
+          recommendation: 'Persistent failure. Circuit breaker tripped. Container restart requested & Human alerted.'
+        };
 
-        if (currentFailures >= 2 && process.env.DISCORD_WEBHOOK_URL) {
-          try {
-            await fetch(process.env.DISCORD_WEBHOOK_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                content: `🚨 **AOC Alert: Agent Failure Threshold Reached**\n**Agent:** \`${agentId}\`\n**Action:** ${action}\n**Failures:** ${currentFailures} consecutive\n**Reason:** ${reasoning || 'Unspecified'}`
-              })
-            });
-          } catch (dErr) {
-            console.error("Discord alert error:", dErr);
-          }
+        // Fire High-Priority Alert to Discord Webhook
+        if (process.env.DISCORD_WEBHOOK_URL) {
+          await fetch(process.env.DISCORD_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username: 'SRAZZU AIOps Healing Engine',
+              embeds: [{
+                title: `🚨 CIRCUIT BREAKER: ${agentId}`,
+                color: 15158332, // Red
+                fields: [
+                  { name: 'Agent', value: agentId, inline: true },
+                  { name: 'Consecutive Failures', value: `${consecutiveFailures}`, inline: true },
+                  { name: 'Reasoning', value: reasoning || 'No context provided' },
+                  { name: 'Healing Action Executed', value: '`CIRCUIT_BREAKER_TRIPPED` -> Triggered Container Restart & Escalation' }
+                ],
+                timestamp: new Date().toISOString()
+              }]
+            })
+          });
         }
-      } else {
-        failureTracker.set(agentId, 0);
       }
-
-      return res.status(200).json({ 
-        success: true, 
-        message: "Telemetry ingested successfully", 
-        data: logEntry 
-      });
-
-    } catch (err) {
-      console.error("Webhook processing error:", err);
-      return res.status(500).json({ success: false, error: err.message });
     }
-  }
 
-  // Fallback route handler
-  return res.status(404).json({ success: false, error: "Route not found" });
+    // Return status along with self-healing instruction
+    return res.status(200).json({
+      success: true,
+      log: log[0],
+      healingInstruction
+    });
+
+  } catch (err) {
+    console.error('Telemetry Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 }
