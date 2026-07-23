@@ -1,11 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
-);
+// Initialize Supabase Client
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default async function handler(req, res) {
+  // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -18,64 +19,120 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
   try {
-    if (req.method === 'POST') {
-      const telemetry = req.body || {};
+    const {
+      agentId,
+      action = 'EXECUTE_WORKFLOW',
+      status,
+      latency = 0,
+      reasoning = '',
+      traceId,
+      model = 'gpt-4',
+      inputPayload = {},
+      tenantId = 'default_tenant',
+      totalTokens = 0,
+      costUsd = 0.000000
+    } = req.body;
 
-      const { error: insertError } = await supabase
-        .from('telemetry_logs')
-        .insert([{
-          agent_id: telemetry.agentId,
-          action: telemetry.action,
-          status: telemetry.status,
-          latency: telemetry.latency,
-          reasoning: telemetry.reasoning,
-          trace_id: telemetry.traceId,
-          model: telemetry.model,
-          prompt_version: telemetry.promptVersion,
-          input_payload: telemetry.inputPayload,
-          retrieved_context: telemetry.retrievedContext,
-          tools_called: telemetry.toolsCalled,
-          memory_snapshot: telemetry.memorySnapshot,
-          prompt_tokens: telemetry.promptTokens,
-          completion_tokens: telemetry.completionTokens,
-          cost_usd: telemetry.costUsd
-        }]);
+    if (!agentId || !status) {
+      return res.status(400).json({ error: 'Missing required fields: agentId and status' });
+    }
 
-      if (insertError) console.error("Supabase Error:", insertError);
+    const currentTraceId = traceId || `tr_${Math.random().toString(36).substring(2, 10)}`;
 
-      const { data: failures } = await supabase
-        .from('telemetry_logs')
-        .select('id')
-        .eq('agent_id', telemetry.agentId)
-        .eq('status', 'FAILED');
+    // 1. Fetch recent telemetry history for this agent to calculate failure state & retry counts
+    const { data: recentTraces } = await supabase
+      .from('telemetry')
+      .select('status, healing_action')
+      .eq('agent_id', agentId)
+      .order('created_at', { ascending: false })
+      .limit(5);
 
-      const failCount = failures ? failures.length : 1;
-
-      let healingInstruction = { action: "NONE" };
-      if (failCount === 1) {
-        healingInstruction = { action: "RETRY_WITH_BACKOFF", backoffMs: 1000 };
-      } else if (failCount === 2) {
-        healingInstruction = { action: "SWAP_MODEL_FALLBACK", fallbackModel: "gpt-3.5-turbo" };
-      } else if (failCount >= 3) {
-        healingInstruction = { action: "CIRCUIT_BREAKER_TRIPPED", alertSent: true };
+    // Calculate consecutive failures
+    let consecutiveFailures = 0;
+    if (status === 'FAILED') {
+      consecutiveFailures = 1; // Current failure
+      if (recentTraces && recentTraces.length > 0) {
+        for (const trace of recentTraces) {
+          if (trace.status === 'FAILED') {
+            consecutiveFailures++;
+          } else {
+            break;
+          }
+        }
       }
-
-      return res.status(200).json({ success: true, healingInstruction });
     }
 
-    if (req.method === 'GET') {
-      const { data: logs } = await supabase
-        .from('telemetry_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
+    // 2. Policy Engine: Determine Self-Healing Action & Retry Count
+    let healingAction = 'NONE';
+    let healingInstruction = { action: 'NONE' };
 
-      return res.status(200).json({ success: true, logs: logs || [] });
+    if (status === 'FAILED') {
+      if (consecutiveFailures === 1) {
+        healingAction = 'RETRY_WITH_BACKOFF';
+        healingInstruction = {
+          action: 'RETRY_WITH_BACKOFF',
+          backoffMs: 1000,
+          retryAttempt: 1,
+          message: 'First execution failure detected. Retrying with exponential backoff.'
+        };
+      } else if (consecutiveFailures === 2) {
+        healingAction = 'SWAP_MODEL_FALLBACK';
+        healingInstruction = {
+          action: 'SWAP_MODEL_FALLBACK',
+          fallbackModel: 'gpt-3.5-turbo',
+          retryAttempt: 2,
+          message: 'Primary model failed twice. Swapping model to fallback option.'
+        };
+      } else if (consecutiveFailures >= 3) {
+        healingAction = 'CIRCUIT_BREAKER_TRIPPED';
+        healingInstruction = {
+          action: 'CIRCUIT_BREAKER_TRIPPED',
+          circuitState: 'OPEN',
+          message: 'Threshold exceeded (3+ consecutive failures). Circuit breaker tripped to prevent cascading failures.'
+        };
+      }
     }
 
-    return res.status(405).json({ error: 'Method not allowed' });
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
+    // 3. Persist rich telemetry record to Supabase
+    const { error: dbError } = await supabase.from('telemetry').insert([
+      {
+        agent_id: agentId,
+        tenant_id: tenantId,
+        action: action,
+        status: status,
+        latency: Number(latency),
+        reasoning: reasoning,
+        trace_id: currentTraceId,
+        model: model,
+        input_payload: inputPayload,
+        healing_action: healingAction,
+        retry_count: status === 'FAILED' ? consecutiveFailures : 0,
+        total_tokens: Number(totalTokens),
+        cost_usd: Number(costUsd)
+      }
+    ]);
+
+    if (dbError) {
+      console.error('Supabase write error:', dbError);
+    }
+
+    // 4. Return action payload back to Python SDK
+    return res.status(200).json({
+      success: true,
+      traceId: currentTraceId,
+      agentId,
+      status,
+      consecutiveFailures,
+      healingInstruction
+    });
+
+  } catch (error) {
+    console.error('Telemetry Handler Error:', error);
+    return res.status(500).json({ error: 'Internal Server Error', details: error.message });
   }
 }
