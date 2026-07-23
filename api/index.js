@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const telemetry = req.body || {};
 
-      // 1. Insert log into Supabase
+      // Insert log into Supabase
       const { error: insertError } = await supabase
         .from('telemetry_logs')
         .insert([{
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
         console.error("Supabase Error:", insertError);
       }
 
-      // 2. Query recent failures for policy decision
+      // Query recent failures for self-healing decision
       const { data: failures } = await supabase
         .from('telemetry_logs')
         .select('id')
