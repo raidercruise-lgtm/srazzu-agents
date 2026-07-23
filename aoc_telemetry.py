@@ -41,7 +41,7 @@ def log_telemetry(
         "inputPayload": input_payload or {},
         "retrievedContext": retrieved_context or [],
         "toolsCalled": tools_called or [],
-        "memorySnapshot": memorySnapshot or {},
+        "memorySnapshot": memory_snapshot or {},
         "promptTokens": prompt_tokens,
         "completionTokens": completion_tokens,
         "costUsd": cost_usd
