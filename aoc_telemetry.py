@@ -3,7 +3,7 @@ import requests
 import uuid
 
 # Base URL to your Vercel deployment (or localhost during dev)
-VERCEL_API_URL = "https://srazzu-sync.vercel.app/api"
+VERCEL_API_URL = "https://srazzu-sync.vercel.app/api/telemetry"
 
 def log_telemetry(
     agent_id: str,
