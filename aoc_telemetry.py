@@ -1,77 +1,77 @@
-import time
+import os
 import requests
-import functools
-import traceback
+import uuid
 
-AOC_ENDPOINT = "https://srazzu-sync-agents.vercel.app/api/v1/telemetry/webhook"
+# Base URL to your Vercel deployment (or localhost during dev)
+VERCEL_API_URL = os.getenv("VERCEL_API_URL", "https://srazzu-sync.vercel.app/api")
 
-def send_telemetry(agent_id: str, action: str, status: str, latency_ms: int, reasoning: str = None):
-    """Sends telemetry data directly to the AOC Webhook and receives healing instructions."""
+def log_telemetry(
+    agent_id: str,
+    action: str,
+    status: str,
+    latency: float,
+    reasoning: str,
+    trace_id: str = None,
+    model: str = "gpt-4o",
+    prompt_version: str = "v1.0.0",
+    input_payload: dict = None,
+    retrieved_context: list = None,
+    tools_called: list = None,
+    memory_snapshot: dict = None,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+    cost_usd: float = 0.0
+):
+    """
+    Sends execution metrics and agent context to api/index.js on Vercel.
+    Returns the self-healing instruction issued by the API backend.
+    """
+    if not trace_id:
+        trace_id = f"tr_{uuid.uuid4().hex[:8]}"
+
     payload = {
         "agentId": agent_id,
         "action": action,
-        "status": status.upper(),
-        "latency": f"{latency_ms}ms",
-        "reasoning": reasoning
+        "status": status,
+        "latency": latency,
+        "reasoning": reasoning,
+        "traceId": trace_id,
+        "model": model,
+        "promptVersion": prompt_version,
+        "inputPayload": input_payload or {},
+        "retrievedContext": retrieved_context or [],
+        "toolsCalled": tools_called or [],
+        "memorySnapshot": memorySnapshot or {},
+        "promptTokens": prompt_tokens,
+        "completionTokens": completion_tokens,
+        "costUsd": cost_usd
     }
+
     try:
-        response = requests.post(AOC_ENDPOINT, json=payload, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            healing = data.get("healingInstruction", {})
-            if healing.get("action") != "NONE":
-                print(f"\n[⚡ SRAZZU HEALING ENGINE] Policy Action Triggered for '{agent_id}':")
-                print(f" ├─ Action: {healing.get('action')}")
-                print(f" └─ Recommendation: {healing.get('recommendation')}\n")
-            return healing
-        return None
-    except Exception as e:
-        print(f"[AOC Telemetry] Failed to send log: {e}")
-        return None
+        response = requests.post(VERCEL_API_URL, json=payload, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+        
+        healing_instruction = data.get("healingInstruction", {})
+        print(f"[{status.upper()}] Sent trace {trace_id} -> Healing action: {healing_instruction.get('action')}")
+        return healing_instruction
 
-def trace_agent_action(agent_id: str, action_name: str = None, max_auto_retries: int = 1):
-    """
-    Decorator that tracks execution and handles autonomous retries / model fallbacks
-    based on healing instructions returned by SRAZZU SYNC.
-    """
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            action = action_name or func.__name__
-            start_time = time.time()
-            
-            try:
-                result = func(*args, **kwargs)
-                latency_ms = int((time.time() - start_time) * 1000)
-                reasoning = str(result)[:250] if result else "Action completed successfully."
-                
-                send_telemetry(agent_id, action, "SUCCESS", latency_ms, reasoning)
-                return result
-                
-            except Exception as e:
-                latency_ms = int((time.time() - start_time) * 1000)
-                error_msg = f"Error: {str(e)}"
-                
-                # Report failure & fetch policy instruction from SRAZZU Policy Engine
-                healing = send_telemetry(agent_id, action, "FAILED", latency_ms, error_msg)
-                
-                # Execute Healing Policy
-                if healing:
-                    policy_action = healing.get("action")
-                    
-                    if policy_action == "RETRY_WITH_BACKOFF" and max_auto_retries > 0:
-                        delay = healing.get("delay_ms", 1000) / 1000.0
-                        print(f"[Self-Healing] Waiting {delay}s before retrying action '{action}'...")
-                        time.sleep(delay)
-                        
-                        # Re-run decorated function (Retry #1)
-                        return wrapper(*args, **kwargs)
-                        
-                    elif policy_action == "SWAP_MODEL_FALLBACK":
-                        print(f"[Self-Healing] Routing '{agent_id}' to fallback model: {healing.get('fallback_model')}...")
-                        kwargs['model_override'] = healing.get('fallback_model')
-                        return func(*args, **kwargs)
+    except requests.exceptions.RequestException as e:
+        print(f"⚠️ Failed to transmit telemetry to {VERCEL_API_URL}: {e}")
+        return {"action": "NONE", "error": str(e)}
 
-                raise e
-        return wrapper
-    return decorator
+# Quick standalone sanity test
+if __name__ == "__main__":
+    print("Testing telemetry pipeline...")
+    res = log_telemetry(
+        agent_id="test-agent-01",
+        action="Run Diagnostics",
+        status="SUCCESS",
+        latency=0.42,
+        reasoning="Executing basic health check query.",
+        model="gpt-4o",
+        prompt_tokens=150,
+        completion_tokens=45,
+        cost_usd=0.0012
+    )
+    print("Response:", res)

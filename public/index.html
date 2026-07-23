@@ -1,210 +1,222 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SRAZZU SYNC | Autonomous AIOps Operations Center</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SRAZZU AIOps Telemetry Dashboard</title>
   <style>
-    @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-    .animate-pulse-slow { animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-green: #22c55e;
+      --accent-red: #ef4444;
+      --accent-yellow: #eab308;
+      --accent-blue: #3b82f6;
+    }
+
+    body {
+      margin: 0;
+      padding: 2rem;
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      letter-spacing: -0.025em;
+    }
+
+    .badge {
+      background-color: rgba(34, 197, 94, 0.1);
+      color: var(--accent-green);
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: 1px solid rgba(34, 197, 94, 0.2);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+
+    .card h3 {
+      margin: 0 0 0.5rem 0;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .card .value {
+      font-size: 1.75rem;
+      font-weight: 700;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+
+    th, td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+
+    th {
+      background-color: rgba(0, 0, 0, 0.2);
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .status-SUCCESS { color: var(--accent-green); font-weight: 600; }
+    .status-FAILED { color: var(--accent-red); font-weight: 600; }
+    
+    .btn {
+      background: var(--accent-blue);
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col antialiased">
+<body>
 
-  <!-- Header Navigation -->
-  <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
-    <div class="flex items-center space-x-3">
-      <div class="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"></div>
-      <h1 class="text-xl font-bold tracking-wider text-white">SRAZZU <span class="text-indigo-400">SYNC</span> <span class="text-xs px-2 py-0.5 rounded border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 ml-2">AIOps Center</span></h1>
-    </div>
-    <div class="flex items-center space-x-4 text-xs text-slate-400">
-      <span>Auto-Refresh: <span class="text-emerald-400 font-mono">3s</span></span>
-      <span>•</span>
-      <span id="last-updated">Updating...</span>
+  <header>
+    <h1>SRAZZU Telemetry & Replay Engine</h1>
+    <div>
+      <span class="badge" id="live-indicator">● LIVE</span>
+      <button class="btn" style="margin-left: 1rem;" onclick="fetchLogs()">Refresh</button>
     </div>
   </header>
 
-  <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
-
-    <!-- Metrics Bar -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-lg">
-        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Operations</p>
-        <h3 id="stat-total" class="text-2xl font-bold text-white mt-1">--</h3>
-      </div>
-      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-lg">
-        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">System Success Rate</p>
-        <h3 id="stat-rate" class="text-2xl font-bold text-emerald-400 mt-1">--%</h3>
-      </div>
-      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-lg">
-        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Avg Latency</p>
-        <h3 id="stat-latency" class="text-2xl font-bold text-indigo-400 mt-1">-- ms</h3>
-      </div>
-      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-lg">
-        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Guardrails</p>
-        <h3 id="stat-breakers" class="text-2xl font-bold text-amber-400 mt-1">0 Tripped</h3>
-      </div>
+  <section class="grid">
+    <div class="card">
+      <h3>Total Ingested Traces</h3>
+      <div class="value" id="total-traces">-</div>
     </div>
+    <div class="card">
+      <h3>System Health Rate</h3>
+      <div class="value" id="health-rate" style="color: var(--accent-green);">-</div>
+    </div>
+    <div class="card">
+      <h3>Avg Latency</h3>
+      <div class="value" id="avg-latency">-</div>
+    </div>
+  </section>
 
-    <!-- Agent Health & SLA Heatmap Panel -->
-    <section class="bg-slate-900/80 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
-      <div class="flex items-center justify-between">
-        <h2 class="text-md font-semibold text-slate-200">Agent Workforce Health & SLA Status</h2>
-        <div class="flex items-center space-x-3 text-xs text-slate-400">
-          <span class="flex items-center"><span class="h-2 w-2 rounded-full bg-emerald-500 mr-1.5"></span>&lt;500ms</span>
-          <span class="flex items-center"><span class="h-2 w-2 rounded-full bg-amber-500 mr-1.5"></span>500-1500ms</span>
-          <span class="flex items-center"><span class="h-2 w-2 rounded-full bg-rose-500 mr-1.5"></span>&gt;1500ms</span>
-        </div>
-      </div>
-      <div id="agent-health-grid" class="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <!-- Dynamic Agent Cards Inserted Here -->
-      </div>
-    </section>
-
-    <!-- Telemetry & Self-Healing Stream -->
-    <section class="bg-slate-900/80 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
-      <div class="flex items-center justify-between">
-        <h2 class="text-md font-semibold text-slate-200">Real-Time Telemetry & Remediation Log</h2>
-        <span class="text-xs text-slate-500">Showing last 20 events</span>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse text-sm">
-          <thead>
-            <tr class="border-b border-slate-800 text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <th class="py-3 px-4">Timestamp</th>
-              <th class="py-3 px-4">Agent ID</th>
-              <th class="py-3 px-4">Action</th>
-              <th class="py-3 px-4">Status</th>
-              <th class="py-3 px-4">Latency</th>
-              <th class="py-3 px-4">Reasoning / Policy Context</th>
-            </tr>
-          </thead>
-          <tbody id="telemetry-table-body" class="divide-y divide-slate-800/60 font-mono text-xs text-slate-300">
-            <tr>
-              <td colspan="6" class="py-6 text-center text-slate-500">Connecting to AOC telemetry pipeline...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </main>
+  <h2>Recent Agent Executions</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Trace ID</th>
+        <th>Agent</th>
+        <th>Action</th>
+        <th>Model</th>
+        <th>Latency</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="logs-body">
+      <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Loading execution traces...</td></tr>
+    </tbody>
+  </table>
 
   <script>
-    const API_ENDPOINT = '/api/v1/telemetry/history?limit=30';
-
-    async function fetchTelemetry() {
+    async function fetchLogs() {
       try {
-        const response = await fetch(`${API_ENDPOINT}&_t=${Date.now()}`);
-        if (!response.ok) return;
-        const data = await response.json();
-        const logs = data.logs || [];
+        const res = await fetch('/api');
+        const data = await res.json();
 
+        if (!data.success) throw new Error(data.error);
+
+        const logs = data.logs || [];
         renderMetrics(logs);
-        renderAgentHealth(logs);
         renderTable(logs);
 
-        document.getElementById('last-updated').innerText = `Refreshed: ${new Date().toLocaleTimeString()}`;
       } catch (err) {
-        console.error("Dashboard refresh error:", err);
+        console.error('Error fetching logs:', err);
+        document.getElementById('logs-body').innerHTML = 
+          `<tr><td colspan="7" style="color: var(--accent-red); text-align: center;">Error loading logs: ${err.message}</td></tr>`;
       }
     }
 
     function renderMetrics(logs) {
-      if (!logs.length) return;
-      const total = logs.length;
-      const successes = logs.filter(l => l.status === 'SUCCESS').length;
-      const rate = ((successes / total) * 100).toFixed(1);
+      document.getElementById('total-traces').innerText = logs.length;
       
-      const latencies = logs.map(l => parseInt(l.latency) || 0);
-      const avgLatency = Math.round(latencies.reduce((a, b) => a + b, 0) / total);
+      if (logs.length === 0) return;
 
-      document.getElementById('stat-total').innerText = total;
-      document.getElementById('stat-rate').innerText = `${rate}%`;
-      document.getElementById('stat-latency').innerText = `${avgLatency} ms`;
-    }
+      const successful = logs.filter(l => l.status === 'SUCCESS').length;
+      const healthPct = Math.round((successful / logs.length) * 100);
+      const healthElem = document.getElementById('health-rate');
+      healthElem.innerText = `${healthPct}%`;
+      healthElem.style.color = healthPct > 80 ? 'var(--accent-green)' : 'var(--accent-red)';
 
-    function renderAgentHealth(logs) {
-      const agents = {};
-      logs.forEach(log => {
-        if (!agents[log.agent_id]) {
-          agents[log.agent_id] = { total: 0, successes: 0, latencies: [], recentStatus: [] };
-        }
-        agents[log.agent_id].total++;
-        if (log.status === 'SUCCESS') agents[log.agent_id].successes++;
-        agents[log.agent_id].latencies.push(parseInt(log.latency) || 0);
-        agents[log.agent_id].recentStatus.push(log.status);
-      });
-
-      const container = document.getElementById('agent-health-grid');
-      container.innerHTML = '';
-
-      let trippedCount = 0;
-
-      Object.keys(agents).forEach(agentId => {
-        const agent = agents[agentId];
-        const successRate = ((agent.successes / agent.total) * 100).toFixed(0);
-        const avgLat = Math.round(agent.latencies.reduce((a, b) => a + b, 0) / agent.total);
-        
-        // Check if agent has 3 consecutive failures recently
-        const recent3 = agent.recentStatus.slice(0, 3);
-        const isTripped = recent3.length >= 3 && recent3.every(s => s === 'FAILED');
-        if (isTripped) trippedCount++;
-
-        let slaColor = 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5';
-        if (avgLat >= 500 && avgLat < 1500) slaColor = 'text-amber-400 border-amber-500/20 bg-amber-500/5';
-        if (avgLat >= 1500 || isTripped) slaColor = 'text-rose-400 border-rose-500/20 bg-rose-500/5';
-
-        const card = document.createElement('div');
-        card.className = `p-4 rounded-lg border ${slaColor} flex flex-col justify-between space-y-2`;
-        card.innerHTML = `
-          <div class="flex items-center justify-between">
-            <span class="font-bold text-sm text-slate-200">${agentId}</span>
-            ${isTripped 
-              ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">CIRCUIT BROKEN</span>' 
-              : '<span class="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">HEALTHY</span>'}
-          </div>
-          <div class="flex items-center justify-between text-xs text-slate-400 pt-1">
-            <span>Uptime: <strong class="text-white">${successRate}%</strong></span>
-            <span>Avg Latency: <strong class="text-white">${avgLat}ms</strong></span>
-          </div>
-        `;
-        container.appendChild(card);
-      });
-
-      document.getElementById('stat-breakers').innerText = `${trippedCount} Tripped`;
+      const totalLatency = logs.reduce((acc, l) => acc + (parseFloat(l.latency) || 0), 0);
+      const avgLat = (totalLatency / logs.length).toFixed(2);
+      document.getElementById('avg-latency').innerText = `${avgLat}s`;
     }
 
     function renderTable(logs) {
-      const tbody = document.getElementById('telemetry-table-body');
-      tbody.innerHTML = '';
+      const tbody = document.getElementById('logs-body');
+      if (logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No logs ingested yet.</td></tr>';
+        return;
+      }
 
-      logs.slice(0, 20).forEach(log => {
-        const tr = document.createElement('tr');
-        tr.className = 'hover:bg-slate-800/40 transition-colors';
-
-        const timeStr = new Date(log.created_at).toLocaleTimeString();
-        const isSuccess = log.status === 'SUCCESS';
-        
-        const statusBadge = isSuccess
-          ? '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">SUCCESS</span>'
-          : '<span class="px-2 py-0.5 rounded text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/20">FAILED</span>';
-
-        tr.innerHTML = `
-          <td class="py-3 px-4 text-slate-500">${timeStr}</td>
-          <td class="py-3 px-4 font-semibold text-indigo-300">${log.agent_id}</td>
-          <td class="py-3 px-4 text-slate-300">${log.action}</td>
-          <td class="py-3 px-4">${statusBadge}</td>
-          <td class="py-3 px-4 text-slate-400">${log.latency}</td>
-          <td class="py-3 px-4 text-slate-400 truncate max-w-xs" title="${log.reasoning || ''}">${log.reasoning || '-'}</td>
-        `;
-        tbody.appendChild(tr);
-      });
+      tbody.innerHTML = logs.map(log => `
+        <tr>
+          <td>${new Date(log.created_at).toLocaleTimeString()}</td>
+          <td><code>${log.trace_id}</code></td>
+          <td><strong>${log.agent_id}</strong></td>
+          <td>${log.action}</td>
+          <td><small>${log.model || 'gpt-4o'}</small></td>
+          <td>${log.latency ? log.latency + 's' : '-'}</td>
+          <td class="status-${log.status}">${log.status}</td>
+        </tr>
+      `).join('');
     }
 
-    // Initial Fetch & Poll every 3 seconds
-    fetchTelemetry();
-    setInterval(fetchTelemetry, 3000);
+    // Initial load + auto-refresh every 10s
+    fetchLogs();
+    setInterval(fetchLogs, 10000);
   </script>
 </body>
 </html>
