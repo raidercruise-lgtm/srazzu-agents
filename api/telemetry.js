@@ -1,12 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase Client
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default async function handler(req, res) {
-  // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -15,13 +13,8 @@ export default async function handler(req, res) {
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   );
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
   try {
     const {
@@ -44,30 +37,32 @@ export default async function handler(req, res) {
 
     const currentTraceId = traceId || `tr_${Math.random().toString(36).substring(2, 10)}`;
 
-    // 1. Fetch recent telemetry history for this agent to calculate failure state & retry counts
-    const { data: recentTraces } = await supabase
-      .from('telemetry')
-      .select('status, healing_action')
-      .eq('agent_id', agentId)
-      .order('created_at', { ascending: false })
-      .limit(5);
-
-    // Calculate consecutive failures
+    // 1. Fetch recent failure history for this agent BEFORE inserting current trace
     let consecutiveFailures = 0;
+
     if (status === 'FAILED') {
-      consecutiveFailures = 1; // Current failure
+      const { data: recentTraces } = await supabase
+        .from('telemetry')
+        .select('status')
+        .eq('agent_id', agentId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      // Start at 1 for current incoming failure
+      consecutiveFailures = 1;
+      
       if (recentTraces && recentTraces.length > 0) {
         for (const trace of recentTraces) {
           if (trace.status === 'FAILED') {
             consecutiveFailures++;
           } else {
-            break;
+            break; // Stop counting as soon as a SUCCESS is encountered
           }
         }
       }
     }
 
-    // 2. Policy Engine: Determine Self-Healing Action & Retry Count
+    // 2. Determine Healing Action based on consecutive failures
     let healingAction = 'NONE';
     let healingInstruction = { action: 'NONE' };
 
@@ -93,12 +88,12 @@ export default async function handler(req, res) {
         healingInstruction = {
           action: 'CIRCUIT_BREAKER_TRIPPED',
           circuitState: 'OPEN',
-          message: 'Threshold exceeded (3+ consecutive failures). Circuit breaker tripped to prevent cascading failures.'
+          message: 'Threshold exceeded (3+ consecutive failures). Circuit breaker tripped.'
         };
       }
     }
 
-    // 3. Persist rich telemetry record to Supabase
+    // 3. Persist trace to Supabase
     const { error: dbError } = await supabase.from('telemetry').insert([
       {
         agent_id: agentId,
@@ -121,7 +116,6 @@ export default async function handler(req, res) {
       console.error('Supabase write error:', dbError);
     }
 
-    // 4. Return action payload back to Python SDK
     return res.status(200).json({
       success: true,
       traceId: currentTraceId,
