@@ -28,7 +28,8 @@ export default async function handler(req, res) {
       inputPayload = {},
       tenantId = 'default_tenant',
       totalTokens = 0,
-      costUsd = 0.000000
+      costUsd = 0.000000,
+      retryCount = 1
     } = req.body;
 
     if (!agentId || !status) {
@@ -36,33 +37,9 @@ export default async function handler(req, res) {
     }
 
     const currentTraceId = traceId || `tr_${Math.random().toString(36).substring(2, 10)}`;
+    const consecutiveFailures = status === 'FAILED' ? Number(retryCount) : 0;
 
-    // 1. Fetch recent failure history for this agent BEFORE inserting current trace
-    let consecutiveFailures = 0;
-
-    if (status === 'FAILED') {
-      const { data: recentTraces } = await supabase
-        .from('telemetry')
-        .select('status')
-        .eq('agent_id', agentId)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      // Start at 1 for current incoming failure
-      consecutiveFailures = 1;
-      
-      if (recentTraces && recentTraces.length > 0) {
-        for (const trace of recentTraces) {
-          if (trace.status === 'FAILED') {
-            consecutiveFailures++;
-          } else {
-            break; // Stop counting as soon as a SUCCESS is encountered
-          }
-        }
-      }
-    }
-
-    // 2. Determine Healing Action based on consecutive failures
+    // 1. Determine Healing Action based on explicit client attempt / retry count
     let healingAction = 'NONE';
     let healingInstruction = { action: 'NONE' };
 
@@ -93,7 +70,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Persist trace to Supabase
+    // 2. Persist trace to Supabase
     const { error: dbError } = await supabase.from('telemetry').insert([
       {
         agent_id: agentId,
@@ -106,7 +83,7 @@ export default async function handler(req, res) {
         model: model,
         input_payload: inputPayload,
         healing_action: healingAction,
-        retry_count: status === 'FAILED' ? consecutiveFailures : 0,
+        retry_count: consecutiveFailures,
         total_tokens: Number(totalTokens),
         cost_usd: Number(costUsd)
       }
