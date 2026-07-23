@@ -1,12 +1,12 @@
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY
 );
 
-module.exports = async (req, res) => {
-  // Enable CORS
+export default async function handler(req, res) {
+  // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -23,7 +23,7 @@ module.exports = async (req, res) => {
     if (req.method === 'POST') {
       const telemetry = req.body || {};
 
-      // Insert log into Supabase
+      // 1. Insert log into Supabase
       const { error: insertError } = await supabase
         .from('telemetry_logs')
         .insert([{
@@ -48,7 +48,7 @@ module.exports = async (req, res) => {
         console.error("Supabase Error:", insertError);
       }
 
-      // Query recent failures for policy decision
+      // 2. Query recent failures for policy decision
       const { data: failures } = await supabase
         .from('telemetry_logs')
         .select('id')
@@ -83,4 +83,4 @@ module.exports = async (req, res) => {
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
-};
+}
