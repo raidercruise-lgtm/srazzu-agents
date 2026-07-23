@@ -2,222 +2,200 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SRAZZU AIOps Telemetry Dashboard</title>
-  <style>
-    :root {
-      --bg: #0f172a;
-      --card-bg: #1e293b;
-      --border: #334155;
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-      --accent-green: #22c55e;
-      --accent-red: #ef4444;
-      --accent-yellow: #eab308;
-      --accent-blue: #3b82f6;
-    }
-
-    body {
-      margin: 0;
-      padding: 2rem;
-      background-color: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
-    }
-
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 2rem;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 1rem;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: 1.5rem;
-      letter-spacing: -0.025em;
-    }
-
-    .badge {
-      background-color: rgba(34, 197, 94, 0.1);
-      color: var(--accent-green);
-      padding: 0.25rem 0.75rem;
-      border-radius: 9999px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      border: 1px solid rgba(34, 197, 94, 0.2);
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 2rem;
-    }
-
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.25rem;
-    }
-
-    .card h3 {
-      margin: 0 0 0.5rem 0;
-      font-size: 0.875rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .card .value {
-      font-size: 1.75rem;
-      font-weight: 700;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    th, td {
-      padding: 0.75rem 1rem;
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.9rem;
-    }
-
-    th {
-      background-color: rgba(0, 0, 0, 0.2);
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-
-    .status-SUCCESS { color: var(--accent-green); font-weight: 600; }
-    .status-FAILED { color: var(--accent-red); font-weight: 600; }
-    
-    .btn {
-      background: var(--accent-blue);
-      color: white;
-      border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-
-    .btn:hover {
-      opacity: 0.9;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autonomous Operations Center (AOC)</title>
+  <!-- Tailwind CSS for styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase JS Client v2 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-6">
 
-  <header>
-    <h1>SRAZZU Telemetry & Replay Engine</h1>
+  <!-- Header -->
+  <div class="max-w-7xl mx-auto flex justify-between items-center border-b border-slate-800 pb-4 mb-6">
     <div>
-      <span class="badge" id="live-indicator">● LIVE</span>
-      <button class="btn" style="margin-left: 1rem;" onclick="fetchLogs()">Refresh</button>
+      <h1 class="text-2xl font-bold tracking-tight text-white">Autonomous Operations Center</h1>
+      <p class="text-xs text-slate-400 mt-0.5">Real-time Self-Healing Observability Console</p>
     </div>
-  </header>
+    <div class="flex items-center gap-3">
+      <span id="connection-status" class="text-xs px-2.5 py-1 rounded-full font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+        ● Connecting...
+      </span>
+      <button onclick="loadDashboardData()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-medium rounded border border-slate-700 transition">
+        Manual Refresh
+      </button>
+    </div>
+  </div>
 
-  <section class="grid">
-    <div class="card">
-      <h3>Total Ingested Traces</h3>
-      <div class="value" id="total-traces">-</div>
+  <main class="max-w-7xl mx-auto space-y-6">
+    <!-- Active Agents Grid -->
+    <div>
+      <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Agent Health Status</h2>
+      <div id="agents-grid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Dynamic Agent Cards Rendered Here -->
+        <div class="p-4 rounded-lg border border-slate-800 bg-slate-900 animate-pulse h-28"></div>
+      </div>
     </div>
-    <div class="card">
-      <h3>System Health Rate</h3>
-      <div class="value" id="health-rate" style="color: var(--accent-green);">-</div>
-    </div>
-    <div class="card">
-      <h3>Avg Latency</h3>
-      <div class="value" id="avg-latency">-</div>
-    </div>
-  </section>
 
-  <h2>Recent Agent Executions</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>Time</th>
-        <th>Trace ID</th>
-        <th>Agent</th>
-        <th>Action</th>
-        <th>Model</th>
-        <th>Latency</th>
-        <th>Status</th>
-      </tr>
-    </thead>
-    <tbody id="logs-body">
-      <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Loading execution traces...</td></tr>
-    </tbody>
-  </table>
+    <!-- Live Telemetry Stream -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+      <div class="px-5 py-4 border-b border-slate-800 flex justify-between items-center">
+        <h2 class="text-sm font-semibold text-slate-200">Live Execution & Healing Timeline</h2>
+        <span class="text-xs text-slate-500 font-mono">Direct Supabase Stream</span>
+      </div>
+      
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs text-left text-slate-300">
+          <thead class="bg-slate-950 text-slate-500 uppercase tracking-wider border-b border-slate-800 font-mono">
+            <tr>
+              <th class="p-3">Time</th>
+              <th class="p-3">Agent ID</th>
+              <th class="p-3">Status</th>
+              <th class="p-3">Model</th>
+              <th class="p-3">Healing Action</th>
+              <th class="p-3">Retry #</th>
+            </tr>
+          </thead>
+          <tbody id="telemetry-table-body" class="divide-y divide-slate-800/60 font-mono">
+            <tr>
+              <td colspan="6" class="p-4 text-center text-slate-500">Loading telemetry stream...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
 
   <script>
-    async function fetchLogs() {
-      try {
-        const res = await fetch('/api');
-        const data = await res.json();
+    // -------------------------------------------------------------
+    // CONFIGURATION
+    // -------------------------------------------------------------
+    // Insert your actual Supabase URL and Anon Key here
+    const SUPABASE_URL = "https://ncndzycavosmxdajxuzp.supabase.co"; 
+    const SUPABASE_ANON_KEY = "sb_publishable_vnJMKn-XawScyg-yU1FkyQ_2uXhv-10";
 
-        if (!data.success) throw new Error(data.error);
+    // Initialize Direct Supabase Client
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        const logs = data.logs || [];
-        renderMetrics(logs);
-        renderTable(logs);
-
-      } catch (err) {
-        console.error('Error fetching logs:', err);
-        document.getElementById('logs-body').innerHTML = 
-          `<tr><td colspan="7" style="color: var(--accent-red); text-align: center;">Error loading logs: ${err.message}</td></tr>`;
-      }
+    // -------------------------------------------------------------
+    // DATA FETCHING & RENDERING (NO FETCH API CALLS)
+    // -------------------------------------------------------------
+    async function loadDashboardData() {
+      await Promise.all([fetchAgentHealth(), fetchTelemetryLogs()]);
     }
 
-    function renderMetrics(logs) {
-      document.getElementById('total-traces').innerText = logs.length;
-      
-      if (logs.length === 0) return;
+    async function fetchAgentHealth() {
+      const { data: summary, error } = await supabaseClient
+        .from('agent_health_summary')
+        .select('*');
 
-      const successful = logs.filter(l => l.status === 'SUCCESS').length;
-      const healthPct = Math.round((successful / logs.length) * 100);
-      const healthElem = document.getElementById('health-rate');
-      healthElem.innerText = `${healthPct}%`;
-      healthElem.style.color = healthPct > 80 ? 'var(--accent-green)' : 'var(--accent-red)';
-
-      const totalLatency = logs.reduce((acc, l) => acc + (parseFloat(l.latency) || 0), 0);
-      const avgLat = (totalLatency / logs.length).toFixed(2);
-      document.getElementById('avg-latency').innerText = `${avgLat}s`;
-    }
-
-    function renderTable(logs) {
-      const tbody = document.getElementById('logs-body');
-      if (logs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No logs ingested yet.</td></tr>';
+      if (error) {
+        console.error("Error fetching agent summary:", error);
         return;
       }
 
-      tbody.innerHTML = logs.map(log => `
-        <tr>
-          <td>${new Date(log.created_at).toLocaleTimeString()}</td>
-          <td><code>${log.trace_id}</code></td>
-          <td><strong>${log.agent_id}</strong></td>
-          <td>${log.action}</td>
-          <td><small>${log.model || 'gpt-4o'}</small></td>
-          <td>${log.latency ? log.latency + 's' : '-'}</td>
-          <td class="status-${log.status}">${log.status}</td>
-        </tr>
-      `).join('');
+      renderAgentCards(summary || []);
     }
 
-    // Initial load + auto-refresh every 10s
-    fetchLogs();
-    setInterval(fetchLogs, 10000);
+    async function fetchTelemetryLogs() {
+      const { data: logs, error } = await supabaseClient
+        .from('telemetry')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error("Error fetching telemetry logs:", error);
+        return;
+      }
+
+      renderTelemetryTable(logs || []);
+    }
+
+    // Render Agent Cards
+    function renderAgentCards(agents) {
+      const container = document.getElementById('agents-grid');
+      if (!agents || agents.length === 0) {
+        container.innerHTML = `<div class="col-span-3 p-4 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-500">No agent activity recorded yet. Run test_autonomous_loop.py on Windows.</div>`;
+        return;
+      }
+
+      container.innerHTML = agents.map(agent => {
+        const isCircuitOpen = agent.last_healing_action === 'CIRCUIT_BREAKER_TRIPPED';
+        return `
+          <div class="p-4 rounded-xl border ${isCircuitOpen ? 'border-rose-500/50 bg-rose-950/20' : 'border-slate-800 bg-slate-900'} transition-all">
+            <div class="flex justify-between items-center mb-2">
+              <span class="font-semibold text-slate-200">${agent.agent_id}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${isCircuitOpen ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}">
+                ${isCircuitOpen ? '🔴 Circuit Open' : '🟢 Healthy'}
+              </span>
+            </div>
+            <div class="space-y-1 text-xs text-slate-400">
+              <div class="flex justify-between"><span>Executions:</span> <span class="text-slate-200 font-mono">${agent.total_executions || 0}</span></div>
+              <div class="flex justify-between"><span>Last Action:</span> <span class="text-amber-400 font-mono">${agent.last_healing_action || 'NONE'}</span></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Render Telemetry Table Rows
+    function renderTelemetryTable(logs) {
+      const tbody = document.getElementById('telemetry-table-body');
+      if (!logs || logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500">No telemetry events logged yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = logs.map(log => {
+        const isFailed = log.status === 'FAILED';
+        const timeStr = new Date(log.created_at).toLocaleTimeString();
+        return `
+          <tr class="hover:bg-slate-800/40 transition-colors">
+            <td class="p-3 text-slate-500">${timeStr}</td>
+            <td class="p-3 font-semibold text-slate-200">${log.agent_id}</td>
+            <td class="p-3">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isFailed ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}">
+                ${log.status}
+              </span>
+            </td>
+            <td class="p-3 text-slate-400">${log.model || 'N/A'}</td>
+            <td class="p-3 text-amber-400 font-medium">${log.healing_action || 'NONE'}</td>
+            <td class="p-3 text-slate-400">${log.retry_count !== undefined ? log.retry_count : 0}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // -------------------------------------------------------------
+    // WEBSOCKET REALTIME SUBSCRIPTION
+    // -------------------------------------------------------------
+    function setupRealtimeSubscription() {
+      const statusBadge = document.getElementById('connection-status');
+
+      const channel = supabaseClient
+        .channel('realtime_telemetry')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'telemetry' },
+          (payload) => {
+            console.log("⚡ Realtime Telemetry Received:", payload.new);
+            loadDashboardData(); // Instantly update UI on new event
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            statusBadge.className = "text-xs px-2.5 py-1 rounded-full font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+            statusBadge.innerText = "● Live Realtime Stream";
+          }
+        });
+    }
+
+    // Initialize Dashboard on Load
+    document.addEventListener('DOMContentLoaded', () => {
+      loadDashboardData();
+      setupRealtimeSubscription();
+    });
   </script>
 </body>
 </html>

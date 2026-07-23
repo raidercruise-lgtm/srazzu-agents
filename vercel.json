@@ -1,3 +1,22 @@
 {
-  "cleanUrls": true
+  "version": 2,
+  "functions": {
+    "api/telemetry.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/telemetry",
+      "dest": "/api/telemetry.js"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
 }
