@@ -1,0 +1,9 @@
+{
+  "name": "swarm-broker",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "broker.js",
+  "dependencies": {
+    "ws": "^8.13.0"
+  }
+}
