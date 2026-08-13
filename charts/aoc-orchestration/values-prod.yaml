@@ -1,0 +1,19 @@
+global:
+  environment: production
+
+engine:
+  replicaCount: 3
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+ingress:
+  tls:
+    - secretName: aoc-tls-certs
+      hosts:
+        - engine.aoc.domain.com
+        - broker.aoc.domain.com

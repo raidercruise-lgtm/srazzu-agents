@@ -1,0 +1,33 @@
+{{- if .Values.engine.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "aoc-orchestration.fullname" . }}-engine-hpa
+  namespace: {{ default .Release.Namespace .Values.global.namespaceOverride }}
+  labels:
+    {{- include "aoc-orchestration.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "aoc-orchestration.fullname" . }}-engine
+  minReplicas: {{ .Values.engine.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.engine.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.engine.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.engine.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.engine.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.engine.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+{{- end }}

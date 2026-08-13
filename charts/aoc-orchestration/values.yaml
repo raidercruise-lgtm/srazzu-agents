@@ -1,0 +1,126 @@
+# Global Configuration
+global:
+  environment: production
+  namespaceOverride: ""
+
+# -- Image Credentials & Pull Secrets
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# -- Managed In-Cluster Infrastructure vs External Support
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "change-me-in-production"
+    database: "aoc_orchestrator"
+    user: "aoc_admin"
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+
+# -- Global Secrets (used if postgresql.enabled or redis.enabled are false)
+externalDatabases:
+  pgHost: ""
+  pgPort: 5432
+  redisHost: ""
+  redisPort: 6379
+
+# -- 1. FastAPI Engine Microservice
+engine:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/aoc/orchestration-engine
+    pullPolicy: IfNotPresent
+    tag: "v1.0.0"
+  
+  service:
+    type: ClusterIP
+    port: 8000
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 75
+    targetMemoryUtilizationPercentage: 80
+
+  pdb:
+    enabled: true
+    minAvailable: 1
+
+  env:
+    logLevel: "INFO"
+    heartbeatInterval: "15s"
+
+# -- 2. Swarm Broker (Node.js WebSocket)
+broker:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/aoc/swarm-broker
+    pullPolicy: IfNotPresent
+    tag: "v1.0.1"
+  
+  service:
+    type: ClusterIP
+    port: 8080
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 128Mi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+
+# -- 3. Timeout Daemon (Python Worker)
+daemon:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/aoc/timeout-daemon
+    pullPolicy: IfNotPresent
+    tag: "v1.0.0"
+
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# -- 4. Ingress Configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  hosts:
+    - host: engine.aoc.internal
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: engine
+    - host: broker.aoc.internal
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: broker
+  tls: []

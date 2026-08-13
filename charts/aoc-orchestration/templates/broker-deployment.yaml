@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aoc-orchestration.fullname" . }}-broker
+  namespace: {{ default .Release.Namespace .Values.global.namespaceOverride }}
+  labels:
+    {{- include "aoc-orchestration.labels" . | nindent 4 }}
+    app.kubernetes.io/component: broker
+spec:
+  {{- if not .Values.broker.autoscaling.enabled }}
+  replicas: {{ .Values.broker.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "aoc-orchestration.broker.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "aoc-orchestration.broker.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: broker
+          image: "{{ .Values.broker.image.repository }}:{{ .Values.broker.image.tag }}"
+          imagePullPolicy: {{ .Values.broker.image.pullPolicy }}
+          ports:
+            - name: websocket
+              containerPort: {{ .Values.broker.service.port }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.broker.resources | nindent 12 }}

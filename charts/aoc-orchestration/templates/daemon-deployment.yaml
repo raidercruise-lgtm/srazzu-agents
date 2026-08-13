@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aoc-orchestration.fullname" . }}-daemon
+  namespace: {{ default .Release.Namespace .Values.global.namespaceOverride }}
+  labels:
+    {{- include "aoc-orchestration.labels" . | nindent 4 }}
+    app.kubernetes.io/component: daemon
+spec:
+  replicas: {{ .Values.daemon.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "aoc-orchestration.daemon.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "aoc-orchestration.daemon.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: daemon
+          image: "{{ .Values.daemon.image.repository }}:{{ .Values.daemon.image.tag }}"
+          imagePullPolicy: {{ .Values.daemon.image.pullPolicy }}
+          resources:
+            {{- toYaml .Values.daemon.resources | nindent 12 }}

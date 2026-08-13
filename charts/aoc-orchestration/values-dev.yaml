@@ -1,0 +1,25 @@
+global:
+  environment: development
+
+engine:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+  env:
+    logLevel: "DEBUG"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+broker:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+
+ingress:
+  hosts:
+    - host: engine.dev.local
+      paths: [{path: /, pathType: Prefix, backend: engine}]
+    - host: broker.dev.local
+      paths: [{path: /, pathType: Prefix, backend: broker}]

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aoc-orchestration.fullname" . }}-engine-service
+  namespace: {{ default .Release.Namespace .Values.global.namespaceOverride }}
+  labels:
+    {{- include "aoc-orchestration.labels" . | nindent 4 }}
+    app.kubernetes.io/component: engine
+spec:
+  type: {{ .Values.engine.service.type }}
+  ports:
+    - port: {{ .Values.engine.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "aoc-orchestration.engine.selectorLabels" . | nindent 4 }}
