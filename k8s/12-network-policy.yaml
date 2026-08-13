@@ -1,0 +1,71 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: aoc-network-policy
+  namespace: aoc-orchestration
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector: {}
+  egress:
+    - to:
+        - podSelector: {}
+    - ports: # DNS resolution
+        - protocol: UDP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aoc-ingress
+  namespace: aoc-orchestration
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/websocket-services: "swarm-broker-service"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: engine.aoc.internal
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aoc-engine-service
+                port:
+                  number: 8000
+    - host: broker.aoc.internal
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: swarm-broker-service
+                port:
+                  number: 8080
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: aoc-orchestration
+resources:
+  - 00-namespace.yaml
+  - 01-priorityclass.yaml
+  - 02-configmap.yaml
+  - 03-secrets.yaml
+  - 04-engine-deployment.yaml
+  - 05-engine-service.yaml
+  - 06-broker-deployment.yaml
+  - 07-broker-service.yaml
+  - 08-daemon-deployment.yaml
+  - 09-hpa-engine.yaml
+  - 10-hpa-broker.yaml
+  - 11-pdb.yaml
+  - 12-network-policy.yaml
+  - 13-ingress.yaml

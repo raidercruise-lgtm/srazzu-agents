@@ -1,0 +1,15 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files and install dependencies
+COPY package*.json ./
+RUN npm install --production
+
+# Copy broker application files
+COPY broker.js ./
+COPY .env ./
+
+EXPOSE 8080
+
+CMD ["node", "broker.js"]

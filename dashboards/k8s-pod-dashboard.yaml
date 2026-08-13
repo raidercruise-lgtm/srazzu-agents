@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-k8s-pods
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1" # Tells the Prometheus-Operator sidecar to auto-import this dashboard
+data:
+  k8s-pods.json: |-
+    # Insert raw Grafana JSON exported from Grafana.com or UI here

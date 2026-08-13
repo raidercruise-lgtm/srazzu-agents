@@ -1,0 +1,571 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AOC Workforce Engine",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/workflows/trigger": {
+      "post": {
+        "summary": "Trigger Workflow",
+        "operationId": "trigger_workflow_workflows_trigger_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowTrigger"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workflows/{wf_id}/approve": {
+      "post": {
+        "summary": "Approve Workflow",
+        "operationId": "approve_workflow_workflows__wf_id__approve_post",
+        "parameters": [
+          {
+            "name": "wf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Wf Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowApproval"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workflows/{wf_id}/callback": {
+      "post": {
+        "summary": "Workflow Callback",
+        "operationId": "workflow_callback_workflows__wf_id__callback_post",
+        "parameters": [
+          {
+            "name": "wf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Wf Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowCallback"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workflows/{wf_id}/replay": {
+      "post": {
+        "summary": "Replay Workflow",
+        "operationId": "replay_workflow_workflows__wf_id__replay_post",
+        "parameters": [
+          {
+            "name": "wf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Wf Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowReplay"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dlq/all": {
+      "get": {
+        "summary": "Get Dlq",
+        "operationId": "get_dlq_dlq_all_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dashboard": {
+      "get": {
+        "summary": "Get Dashboard",
+        "operationId": "get_dashboard_dashboard_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workers/register": {
+      "post": {
+        "summary": "Register Worker",
+        "operationId": "register_worker_workers_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterWorkerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workers/heartbeat": {
+      "post": {
+        "summary": "Worker Heartbeat",
+        "operationId": "worker_heartbeat_workers_heartbeat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeartbeatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workers/active": {
+      "get": {
+        "summary": "List Active Workers",
+        "operationId": "list_active_workers_workers_active_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HeartbeatRequest": {
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          },
+          "cpu_pct": {
+            "type": "number",
+            "title": "Cpu Pct"
+          },
+          "mem_free_mb": {
+            "type": "integer",
+            "title": "Mem Free Mb"
+          },
+          "active_tasks": {
+            "type": "integer",
+            "title": "Active Tasks"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "HEALTHY"
+          }
+        },
+        "type": "object",
+        "required": [
+          "node_id",
+          "cpu_pct",
+          "mem_free_mb",
+          "active_tasks"
+        ],
+        "title": "HeartbeatRequest"
+      },
+      "RegisterWorkerRequest": {
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Capabilities"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "default": "1.0.0"
+          },
+          "max_concurrency": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Max Concurrency",
+            "default": 5
+          },
+          "zone": {
+            "type": "string",
+            "title": "Zone",
+            "default": "us-east-1"
+          }
+        },
+        "type": "object",
+        "required": [
+          "node_id",
+          "capabilities"
+        ],
+        "title": "RegisterWorkerRequest"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WorkflowApproval": {
+        "properties": {
+          "approved_by": {
+            "type": "string",
+            "title": "Approved By"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "default": "Approved by operator"
+          }
+        },
+        "type": "object",
+        "required": [
+          "approved_by"
+        ],
+        "title": "WorkflowApproval"
+      },
+      "WorkflowCallback": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Id"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "WorkflowCallback"
+      },
+      "WorkflowReplay": {
+        "properties": {
+          "replayed_by": {
+            "type": "string",
+            "title": "Replayed By"
+          },
+          "updated_payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Updated Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "replayed_by",
+          "updated_payload"
+        ],
+        "title": "WorkflowReplay"
+      },
+      "WorkflowTrigger": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "target_node": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Node"
+          },
+          "required_capability": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Capability",
+            "default": "general"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload",
+            "default": {}
+          },
+          "max_retries": {
+            "type": "integer",
+            "title": "Max Retries",
+            "default": 3
+          }
+        },
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "title": "WorkflowTrigger"
+      }
+    }
+  }
+}

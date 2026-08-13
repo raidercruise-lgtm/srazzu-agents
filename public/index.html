@@ -3,199 +3,244 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Autonomous Operations Center (AOC)</title>
-  <!-- Tailwind CSS for styling -->
+  <title>AOC Dashboard — Multi-Agent Workflow Orchestrator</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Supabase JS Client v2 CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { background-color: #0d1117; color: #c9d1d9; font-family: ui-sans-serif, system-ui, sans-serif; }
+    .card { background-color: #161b22; border: 1px solid #30363d; border-radius: 0.5rem; }
+  </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen p-6">
+<body class="p-6">
 
   <!-- Header -->
-  <div class="max-w-7xl mx-auto flex justify-between items-center border-b border-slate-800 pb-4 mb-6">
+  <div class="flex items-center justify-between pb-6 mb-6 border-b border-gray-800">
     <div>
-      <h1 class="text-2xl font-bold tracking-tight text-white">Autonomous Operations Center</h1>
-      <p class="text-xs text-slate-400 mt-0.5">Real-time Self-Healing Observability Console</p>
+      <h1 class="text-2xl font-bold text-white tracking-tight">Autonomous Operations Center (AOC)</h1>
+      <p class="text-sm text-gray-400">Phase 5: Multi-Agent Governance & Policy Automation V2</p>
     </div>
-    <div class="flex items-center gap-3">
-      <span id="connection-status" class="text-xs px-2.5 py-1 rounded-full font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-        ● Connecting...
+    <div class="flex items-center gap-2">
+      <span class="relative flex h-3 w-3">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
       </span>
-      <button onclick="loadDashboardData()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-medium rounded border border-slate-700 transition">
-        Manual Refresh
-      </button>
+      <span id="sync-status" class="text-xs font-mono text-emerald-400 font-semibold uppercase tracking-wider">Live WebSocket Sync</span>
     </div>
   </div>
 
-  <main class="max-w-7xl mx-auto space-y-6">
-    <!-- Active Agents Grid -->
-    <div>
-      <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Agent Health Status</h2>
-      <div id="agents-grid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <!-- Dynamic Agent Cards Rendered Here -->
-        <div class="p-4 rounded-lg border border-slate-800 bg-slate-900 animate-pulse h-28"></div>
+  <!-- EVALUATION CARDS -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="card p-5">
+      <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Overall Quality Score</div>
+      <div class="flex items-baseline gap-2">
+        <span id="overall-quality-score" class="text-4xl font-extrabold text-emerald-400">--/100</span>
+        <span class="text-xs text-gray-400">Target: ≥90.0</span>
       </div>
+      <p class="text-xs text-gray-500 mt-2">Composite across latency, cost & task completion</p>
     </div>
 
-    <!-- Live Telemetry Stream -->
-    <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
-      <div class="px-5 py-4 border-b border-slate-800 flex justify-between items-center">
-        <h2 class="text-sm font-semibold text-slate-200">Live Execution & Healing Timeline</h2>
-        <span class="text-xs text-slate-500 font-mono">Direct Supabase Stream</span>
+    <div class="card p-5">
+      <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Hallucination Risk</div>
+      <div class="flex items-baseline gap-2">
+        <span id="hallucination-risk" class="text-4xl font-extrabold text-cyan-400">--%</span>
+        <span class="text-xs text-gray-400">Target: &lt;5%</span>
       </div>
-      
-      <div class="overflow-x-auto">
-        <table class="w-full text-xs text-left text-slate-300">
-          <thead class="bg-slate-950 text-slate-500 uppercase tracking-wider border-b border-slate-800 font-mono">
-            <tr>
-              <th class="p-3">Time</th>
-              <th class="p-3">Agent ID</th>
-              <th class="p-3">Status</th>
-              <th class="p-3">Model</th>
-              <th class="p-3">Healing Action</th>
-              <th class="p-3">Retry #</th>
-            </tr>
-          </thead>
-          <tbody id="telemetry-table-body" class="divide-y divide-slate-800/60 font-mono">
-            <tr>
-              <td colspan="6" class="p-4 text-center text-slate-500">Loading telemetry stream...</td>
-            </tr>
-          </tbody>
-        </table>
+      <p class="text-xs text-gray-500 mt-2">Derived from token output ratios & output schema check</p>
+    </div>
+
+    <div class="card p-5">
+      <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">AIOps Recommendation</div>
+      <div id="ai-recommendation" class="text-sm text-yellow-300 font-medium leading-relaxed italic">
+        Awaiting live execution evaluation...
       </div>
     </div>
-  </main>
+  </div>
+
+  <!-- WORKFLOW TRACING -->
+  <div class="card p-6 mb-8">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold text-white">Workflow Orchestrator (Phase 4)</h2>
+      <span id="active-workflow-id" class="text-xs font-mono text-cyan-400 bg-cyan-950 px-2 py-1 rounded border border-cyan-800">
+        Awaiting Execution...
+      </span>
+    </div>
+
+    <div id="workflow-dag-container" class="grid grid-cols-1 md:grid-cols-4 gap-4 py-4 border-t border-b border-gray-800">
+      <div class="p-3 bg-gray-800/40 rounded border border-gray-700 text-center opacity-50 transition-all duration-300" id="step-receptionist">
+        <div class="text-xs text-gray-400 uppercase font-mono">1. Receptionist</div>
+        <div class="text-sm font-semibold text-white mt-1">Pending</div>
+      </div>
+      <div class="p-3 bg-gray-800/40 rounded border border-gray-700 text-center opacity-50 transition-all duration-300" id="step-intent_router">
+        <div class="text-xs text-gray-400 uppercase font-mono">2. Intent Router</div>
+        <div class="text-sm font-semibold text-white mt-1">Pending</div>
+      </div>
+      <div class="p-3 bg-gray-800/40 rounded border border-gray-700 text-center opacity-50 transition-all duration-300" id="step-sales">
+        <div class="text-xs text-gray-400 uppercase font-mono">3. Sales Agent</div>
+        <div class="text-sm font-semibold text-white mt-1">Pending</div>
+      </div>
+      <div class="p-3 bg-gray-800/40 rounded border border-gray-700 text-center opacity-50 transition-all duration-300" id="step-quote_generator">
+        <div class="text-xs text-gray-400 uppercase font-mono">4. Quote Generator</div>
+        <div class="text-sm font-semibold text-white mt-1">Pending</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REAL-TIME GOVERNANCE & POLICY ALERTS (PHASE 5) -->
+  <div class="card p-6 mb-8 border-amber-900/40 bg-amber-950/10">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold text-amber-400 flex items-center gap-2">
+        <span>🚨</span> Real-Time Governance & Policy Violations
+      </h2>
+      <span class="text-xs font-mono text-amber-300 bg-amber-950 px-2 py-1 rounded border border-amber-800">
+        Active Shield V2
+      </span>
+    </div>
+    <div id="policy-alerts-container" class="space-y-2 font-mono text-xs">
+      <p id="no-violations" class="text-gray-500 italic">No policy violations detected for active execution.</p>
+    </div>
+  </div>
+
+  <!-- TELEMETRY TABLE -->
+  <div class="card p-6">
+    <h2 class="text-lg font-semibold text-white mb-4">Agent Telemetry Feed</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-sm text-gray-400">
+        <thead class="bg-gray-800/50 text-gray-300 uppercase text-xs font-mono">
+          <tr>
+            <th class="py-3 px-4">Timestamp</th>
+            <th class="py-3 px-4">Agent ID</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4">Latency</th>
+            <th class="py-3 px-4">Cost ($)</th>
+            <th class="py-3 px-4">Model</th>
+          </tr>
+        </thead>
+        <tbody id="telemetry-table-body" class="divide-y divide-gray-800 font-mono text-xs">
+          <tr id="empty-row">
+            <td colspan="6" class="py-6 text-center text-gray-500 italic">Listening for incoming telemetry events...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
   <script>
-    // -------------------------------------------------------------
-    // CONFIGURATION
-    // -------------------------------------------------------------
-    // Insert your actual Supabase URL and Anon Key here
-    const SUPABASE_URL = "https://ncndzycavosmxdajxuzp.supabase.co"; 
-    const SUPABASE_ANON_KEY = "sb_publishable_vnJMKn-XawScyg-yU1FkyQ_2uXhv-10";
+    const SUPABASE_URL = "https://ncndzycavosmxdajxuzp.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_vnJMKn-XawScyg-yU1FkyQ_2uXhv-10";
 
-    // Initialize Direct Supabase Client
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // -------------------------------------------------------------
-    // DATA FETCHING & RENDERING (NO FETCH API CALLS)
-    // -------------------------------------------------------------
-    async function loadDashboardData() {
-      await Promise.all([fetchAgentHealth(), fetchTelemetryLogs()]);
-    }
-
-    async function fetchAgentHealth() {
-      const { data: summary, error } = await supabaseClient
-        .from('agent_health_summary')
-        .select('*');
-
-      if (error) {
-        console.error("Error fetching agent summary:", error);
-        return;
-      }
-
-      renderAgentCards(summary || []);
-    }
-
-    async function fetchTelemetryLogs() {
-      const { data: logs, error } = await supabaseClient
-        .from('telemetry')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) {
-        console.error("Error fetching telemetry logs:", error);
-        return;
-      }
-
-      renderTelemetryTable(logs || []);
-    }
-
-    // Render Agent Cards
-    function renderAgentCards(agents) {
-      const container = document.getElementById('agents-grid');
-      if (!agents || agents.length === 0) {
-        container.innerHTML = `<div class="col-span-3 p-4 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-500">No agent activity recorded yet. Run test_autonomous_loop.py on Windows.</div>`;
-        return;
-      }
-
-      container.innerHTML = agents.map(agent => {
-        const isCircuitOpen = agent.last_healing_action === 'CIRCUIT_BREAKER_TRIPPED';
-        return `
-          <div class="p-4 rounded-xl border ${isCircuitOpen ? 'border-rose-500/50 bg-rose-950/20' : 'border-slate-800 bg-slate-900'} transition-all">
-            <div class="flex justify-between items-center mb-2">
-              <span class="font-semibold text-slate-200">${agent.agent_id}</span>
-              <span class="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${isCircuitOpen ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}">
-                ${isCircuitOpen ? '🔴 Circuit Open' : '🟢 Healthy'}
-              </span>
-            </div>
-            <div class="space-y-1 text-xs text-slate-400">
-              <div class="flex justify-between"><span>Executions:</span> <span class="text-slate-200 font-mono">${agent.total_executions || 0}</span></div>
-              <div class="flex justify-between"><span>Last Action:</span> <span class="text-amber-400 font-mono">${agent.last_healing_action || 'NONE'}</span></div>
-            </div>
-          </div>
+    // Helpers to render UI
+    function updateStepUI(step) {
+      document.getElementById('active-workflow-id').innerText = `Execution: ${step.execution_id}`;
+      const stepCard = document.getElementById(`step-${step.step_id}`);
+      if (stepCard) {
+        stepCard.className = "p-3 bg-emerald-950/80 rounded border border-emerald-500 text-center transition-all duration-300 opacity-100 shadow-lg shadow-emerald-950/50";
+        stepCard.innerHTML = `
+          <div class="text-xs text-emerald-400 font-bold uppercase font-mono">✓ ${step.step_id}</div>
+          <div class="text-sm font-semibold text-white mt-1">${step.latency_ms} ms</div>
         `;
-      }).join('');
+      }
     }
 
-    // Render Telemetry Table Rows
-    function renderTelemetryTable(logs) {
-      const tbody = document.getElementById('telemetry-table-body');
-      if (!logs || logs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500">No telemetry events logged yet.</td></tr>`;
-        return;
+    function addTelemetryRow(telemetry) {
+      const tableBody = document.getElementById('telemetry-table-body');
+      const emptyRow = document.getElementById('empty-row');
+      if (emptyRow) emptyRow.remove();
+
+      const row = document.createElement('tr');
+      row.className = "hover:bg-gray-800/30 transition-colors";
+      const timestamp = new Date(telemetry.created_at || Date.now()).toLocaleTimeString();
+      const statusBadge = telemetry.status === 'SUCCESS' 
+        ? `<span class="px-2 py-0.5 rounded text-xs bg-emerald-950 text-emerald-400 font-semibold border border-emerald-800">SUCCESS</span>` 
+        : `<span class="px-2 py-0.5 rounded text-xs bg-red-950 text-red-400 font-semibold border border-red-800">FAILED</span>`;
+
+      row.innerHTML = `
+        <td class="py-3 px-4 text-gray-500">${timestamp}</td>
+        <td class="py-3 px-4 text-white font-semibold">${telemetry.agent_id}</td>
+        <td class="py-3 px-4">${statusBadge}</td>
+        <td class="py-3 px-4 text-cyan-300">${telemetry.latency_ms} ms</td>
+        <td class="py-3 px-4 text-amber-300">$${Number(telemetry.total_cost).toFixed(6)}</td>
+        <td class="py-3 px-4 text-gray-400">${telemetry.model_used}</td>
+      `;
+      tableBody.insertBefore(row, tableBody.firstChild);
+    }
+
+    function updateEvalUI(evalData) {
+      document.getElementById('overall-quality-score').innerText = `${evalData.overall_score}/100`;
+      document.getElementById('hallucination-risk').innerText = `${evalData.hallucination_score}%`;
+      document.getElementById('ai-recommendation').innerText = evalData.recommendation || "Optimal execution. Performance within operational targets.";
+    }
+
+    function addPolicyAlert(violation) {
+      const container = document.getElementById('policy-alerts-container');
+      const noViolations = document.getElementById('no-violations');
+      if (noViolations) noViolations.remove();
+
+      const alertDiv = document.createElement('div');
+      alertDiv.className = "p-3 rounded bg-amber-900/20 border border-amber-700/50 flex justify-between items-center text-amber-200";
+      alertDiv.innerHTML = `
+        <div>
+          <span class="font-bold text-amber-400">[${violation.policy_name}]</span> 
+          <span class="text-gray-300 ml-2">${violation.trigger_reason}</span>
+        </div>
+        <span class="px-2 py-1 bg-amber-950 border border-amber-700 rounded text-amber-300 font-bold uppercase text-[10px]">
+          Action: ${violation.action_taken}
+        </span>
+      `;
+      container.insertBefore(alertDiv, container.firstChild);
+    }
+
+    // 1. INITIAL LOAD (Hydrate screen immediately with existing DB rows)
+    async function hydrateDashboard() {
+      // Load Telemetry
+      const { data: teleData } = await supabaseClient.from('telemetry').select('*').order('created_at', { ascending: false }).limit(10);
+      if (teleData && teleData.length > 0) {
+        teleData.reverse().forEach(addTelemetryRow);
       }
 
-      tbody.innerHTML = logs.map(log => {
-        const isFailed = log.status === 'FAILED';
-        const timeStr = new Date(log.created_at).toLocaleTimeString();
-        return `
-          <tr class="hover:bg-slate-800/40 transition-colors">
-            <td class="p-3 text-slate-500">${timeStr}</td>
-            <td class="p-3 font-semibold text-slate-200">${log.agent_id}</td>
-            <td class="p-3">
-              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isFailed ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}">
-                ${log.status}
-              </span>
-            </td>
-            <td class="p-3 text-slate-400">${log.model || 'N/A'}</td>
-            <td class="p-3 text-amber-400 font-medium">${log.healing_action || 'NONE'}</td>
-            <td class="p-3 text-slate-400">${log.retry_count !== undefined ? log.retry_count : 0}</td>
-          </tr>
-        `;
-      }).join('');
+      // Load Evaluations
+      const { data: evalData } = await supabaseClient.from('evaluation_results').select('*').order('evaluated_at', { ascending: false }).limit(1);
+      if (evalData && evalData.length > 0) {
+        updateEvalUI(evalData[0]);
+      }
+
+      // Load Workflow Steps
+      const { data: stepData } = await supabaseClient.from('workflow_step_events').select('*').order('timestamp', { ascending: true });
+      if (stepData && stepData.length > 0) {
+        stepData.forEach(updateStepUI);
+      }
+
+      // Load Policy Violations
+      const { data: violations } = await supabaseClient.from('policy_violations').select('*').order('timestamp', { ascending: false }).limit(5);
+      if (violations && violations.length > 0) {
+        violations.reverse().forEach(addPolicyAlert);
+      }
     }
 
-    // -------------------------------------------------------------
-    // WEBSOCKET REALTIME SUBSCRIPTION
-    // -------------------------------------------------------------
-    function setupRealtimeSubscription() {
-      const statusBadge = document.getElementById('connection-status');
+    // 2. REALTIME LISTENERS
+    supabaseClient
+      .channel('public:evaluation_results')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'evaluation_results' }, payload => updateEvalUI(payload.new))
+      .subscribe();
 
-      const channel = supabaseClient
-        .channel('realtime_telemetry')
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'telemetry' },
-          (payload) => {
-            console.log("⚡ Realtime Telemetry Received:", payload.new);
-            loadDashboardData(); // Instantly update UI on new event
-          }
-        )
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            statusBadge.className = "text-xs px-2.5 py-1 rounded-full font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
-            statusBadge.innerText = "● Live Realtime Stream";
-          }
-        });
-    }
+    supabaseClient
+      .channel('public:workflow_step_events')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'workflow_step_events' }, payload => updateStepUI(payload.new))
+      .subscribe();
 
-    // Initialize Dashboard on Load
-    document.addEventListener('DOMContentLoaded', () => {
-      loadDashboardData();
-      setupRealtimeSubscription();
-    });
+    supabaseClient
+      .channel('public:telemetry')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'telemetry' }, payload => addTelemetryRow(payload.new))
+      .subscribe();
+
+    supabaseClient
+      .channel('public:policy_violations')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'policy_violations' }, payload => addPolicyAlert(payload.new))
+      .subscribe();
+
+    // Trigger initial load on page start
+    hydrateDashboard();
   </script>
 </body>
 </html>

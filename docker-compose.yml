@@ -1,25 +1,72 @@
 services:
-  broker:
-    build: .
-    image: swarm-broker:latest
+  db:
+    image: postgres:15-alpine
+    container_name: aoc_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: aoc_db
     ports:
-      - "9999:8080"
+      - "5432:5432"
     volumes:
-      - swarm_data:/usr/src/app/db_storage
-    environment:
-      - NODE_ENV=production
-      - DB_PATH=/usr/src/app/db_storage/swarm_telemetry.db
-    restart: always
+      - pgdata:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  target_node:
-    image: swarm-broker:latest
-    depends_on:
-      - broker
+  redis:
+    image: redis:7-alpine
+    container_name: aoc_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  aoc_engine:
+    build: .
+    container_name: aoc_engine
+    ports:
+      - "8000:8000"
     environment:
-      - NODE_ENV=production
-      - BROKER_URL=ws://broker:8080
-    command: ["node", "target_node.js"]
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/aoc_db
+      - REDIS_URL=redis://redis:6379
+      - BROKER_URL=http://swarm_broker:8080
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  swarm_broker:
+    build: ./broker
+    container_name: swarm_broker
+    ports:
+      - "8080:8080"
+    environment:
+      - ENGINE_URL=http://aoc_engine:8000
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - aoc_engine
+
+  timeout_daemon:
+    build: .
+    container_name: aoc_timeout_daemon
+    command: python timeout_daemon.py
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CHECK_INTERVAL_SECONDS=5.0
+      - WORKER_TIMEOUT_SECONDS=15.0
+    depends_on:
+      redis:
+        condition: service_healthy
     restart: always
 
 volumes:
-  swarm_data:
+  pgdata:

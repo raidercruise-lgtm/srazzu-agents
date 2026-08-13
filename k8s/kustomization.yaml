@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: aoc-orchestration
+
+resources:
+  - 00-namespace.yaml
+  - 01-priorityclass.yaml
+  - 02-configmap.yaml
+  - 03-secrets.yaml
+  - 04-engine-deployment.yaml
+  - 05-engine-service.yaml
+  - 06-broker-deployment.yaml
+  - 07-broker-service.yaml
+  - 08-daemon-deployment.yaml
+  - 09-hpa-engine.yaml
+  - 10-hpa-broker.yaml
+  - 11-pdb.yaml
+  - 12-network-policy.yaml
+  - 13-ingress.yaml

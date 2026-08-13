@@ -1,0 +1,25 @@
+{
+  "id": "aoc-engine-env",
+  "name": "AOC Workforce Engine - Local Environment",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "workflow_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "node_id",
+      "value": "worker-node-01",
+      "type": "default",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}

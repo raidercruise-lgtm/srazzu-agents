@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: timeout-daemon
+  namespace: aoc-orchestration
+  labels:
+    app.kubernetes.io/component: daemon
+    app.kubernetes.io/name: timeout-daemon
+spec:
+  # Singleton instance guarantees no race conditions during worker eviction sweeps
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: timeout-daemon
+  template:
+    metadata:
+      labels:
+        app: timeout-daemon
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+      containers:
+        - name: timeout-daemon
+          image: ghcr.io/your-org/aoc_engine:v1.0.0
+          command: ["python", "timeout_daemon.py"]
+          envFrom:
+            - configMapRef:
+                name: aoc-config
+            - secretRef:
+                name: aoc-secrets
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
