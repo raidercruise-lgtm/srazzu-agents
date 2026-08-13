@@ -1,0 +1,144 @@
+name: AOC Orchestration Platform CI/CD
+
+on:
+  push:
+    branches: [ "main", "release/*" ]
+    tags: [ "v*.*.*" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/aoc
+
+jobs:
+  # ==================================================================
+  # STAGE 1: Static Analysis & Helm Validation
+  # ==================================================================
+  lint-and-validate:
+    name: 🔍 Lint & Render Manifests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Lint Helm Chart
+        run: |
+          helm lint ./charts/aoc-orchestration
+
+      - name: Test Template Rendering (Dev & Prod)
+        run: |
+          helm template dev-test ./charts/aoc-orchestration -f ./charts/aoc-orchestration/values-dev.yaml > /dev/null
+          helm template prod-test ./charts/aoc-orchestration -f ./charts/aoc-orchestration/values-prod.yaml > /dev/null
+
+  # ==================================================================
+  # STAGE 2: Parallel Docker Container Builds & Registry Push
+  # ==================================================================
+  build-and-push-images:
+    name: 🐳 Build & Push Images
+    needs: lint-and-validate
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [engine, broker, daemon]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Container Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,format=short
+            type=ref,event=tag
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ==================================================================
+  # STAGE 3: Helm Chart Packaging
+  # ==================================================================
+  package-helm:
+    name: 📦 Package Helm Artifact
+    needs: build-and-push-images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Package Chart
+        run: |
+          mkdir -p dist
+          helm package ./charts/aoc-orchestration --destination ./dist
+
+      - name: Upload Helm Package Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-package
+          path: ./dist/*.tgz
+
+  # ==================================================================
+  # STAGE 4: Automated Continuous Deployment (Dev Environment)
+  # ==================================================================
+  deploy-dev:
+    name: 🚀 Deploy to Development Cluster
+    needs: package-helm
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Kubernetes Context
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG_DEV }}
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Download Helm Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: helm-package
+          path: ./dist
+
+      - name: Deploy / Upgrade Release via Helm
+        run: |
+          CHART_FILE=$(ls ./dist/*.tgz)
+          helm upgrade --install aoc-orchestration $CHART_FILE \
+            --namespace aoc-orchestration \
+            --create-namespace \
+            --values ./charts/aoc-orchestration/values-dev.yaml \
+            --wait --timeout 5m0s
