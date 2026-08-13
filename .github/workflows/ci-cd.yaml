@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [ "main" ]
 
+# Explicitly grant package write access to GHCR and read access to contents
+permissions:
+  contents: read
+  packages: write
+
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ${{ github.repository_owner }}/aoc
