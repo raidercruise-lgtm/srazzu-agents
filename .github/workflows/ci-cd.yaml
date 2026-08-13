@@ -7,7 +7,7 @@ on:
   pull_request:
     branches: [ "main" ]
 
-# Explicitly grant package write access to GHCR and read access to contents
+# Explicitly grant package write access to GHCR and read access to repository contents
 permissions:
   contents: read
   packages: write
@@ -112,38 +112,39 @@ jobs:
           path: ./dist/*.tgz
 
   # ==================================================================
-  # STAGE 4: Automated Continuous Deployment (Dev Environment)
+  # STAGE 4: Continuous Deployment (Disabled for Local Kubernetes)
+  # Uncomment this stage when targeting a public Cloud Cluster (EKS/GKE)
   # ==================================================================
-  deploy-dev:
-    name: 🚀 Deploy to Development Cluster
-    needs: package-helm
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    environment: development
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Set up Kubernetes Context
-        uses: azure/k8s-set-context@v4
-        with:
-          method: kubeconfig
-          kubeconfig: ${{ secrets.KUBE_CONFIG_DEV }}
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
-
-      - name: Download Helm Build Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: helm-package
-          path: ./dist
-
-      - name: Deploy / Upgrade Release via Helm
-        run: |
-          CHART_FILE=$(ls ./dist/*.tgz)
-          helm upgrade --install aoc-orchestration $CHART_FILE \
-            --namespace aoc-orchestration \
-            --create-namespace \
-            --values ./charts/aoc-orchestration/values-dev.yaml \
-            --wait --timeout 5m0s
+  # deploy-dev:
+  #   name: 🚀 Deploy to Development Cluster
+  #   needs: package-helm
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   runs-on: ubuntu-latest
+  #   environment: development
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Set up Kubernetes Context
+  #       uses: azure/k8s-set-context@v4
+  #       with:
+  #         method: kubeconfig
+  #         kubeconfig: ${{ secrets.KUBE_CONFIG_DEV }}
+  #
+  #     - name: Set up Helm
+  #       uses: azure/setup-helm@v4
+  #
+  #     - name: Download Helm Build Artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: helm-package
+  #         path: ./dist
+  #
+  #     - name: Deploy / Upgrade Release via Helm
+  #       run: |
+  #         CHART_FILE=$(ls ./dist/*.tgz)
+  #         helm upgrade --install aoc-orchestration $CHART_FILE \
+  #           --namespace aoc-orchestration \
+  #           --create-namespace \
+  #           --values ./charts/aoc-orchestration/values-dev.yaml \
+  #           --wait --timeout 5m0s
